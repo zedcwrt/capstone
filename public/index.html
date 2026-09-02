@@ -342,12 +342,13 @@ function addLog(msg, type = '') {
 }
 
 // ============================================================
-// POLLING HTTP
+// MQTT bridge via Server-Sent Events
 // ============================================================
 let dataCount = 0;
 let lastTimestamp = null;
 let serverOnline = false;
 let statsInterval = null;
+let eventSource = null;
 
 function setStatus(online) {
   const badge = document.getElementById('ws-status');
@@ -362,35 +363,19 @@ function setStatus(online) {
 }
 
 
-  async function pollLatest() {
-  try {
-    const res = await fetch(`${API_BASE}/input?mode=latest`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-    const json = await res.json();
-    if (!serverOnline) {
-      setStatus(true);
-      addLog('Server Vercel terhubung ✓', 'ok');
-      // Muat history chart saat pertama konek
-      pollHistory();
-    }
-
-    if (json.data) {
-      const d = json.data;
-      // Hanya update jika data baru (cek timestamp)
-      if (d.timestamp !== lastTimestamp) {
-        lastTimestamp = d.timestamp;
-        updateMetrics(d);
-        showDeviceBadge('ESP8266_HTTP');
-      }
-    }
-  } catch (err) {
-    if (serverOnline) {
-      setStatus(false);
-      document.getElementById('device-status').style.display = 'none';
-      addLog('Server tidak bisa dijangkau: ' + err.message, 'error');
-    }
-  }
+function connectEvents() {
+  eventSource = new EventSource(`${API_BASE}/events`);
+  eventSource.onopen = () => { setStatus(true); addLog('MQTT bridge terhubung ✓', 'ok'); };
+  eventSource.onerror = () => { setStatus(false); addLog('MQTT bridge offline, mencoba ulang...', 'error'); };
+  eventSource.onmessage = event => {
+    const d = JSON.parse(event.data);
+    if (d.timestamp && d.timestamp !== lastTimestamp) { lastTimestamp = d.timestamp; updateMetrics(d); showDeviceBadge('ESP8266_MQTT'); }
+  };
+  eventSource.addEventListener('snapshot', event => {
+    const snapshot = JSON.parse(event.data);
+    if (snapshot.history?.length) snapshot.history.slice(-MAX_POINTS).forEach(pushChartData);
+    if (snapshot.data && snapshot.data.timestamp !== lastTimestamp) { lastTimestamp = snapshot.data.timestamp; updateMetrics(snapshot.data); }
+  });
 }
 
 async function pollHistory() {
@@ -499,11 +484,10 @@ setInterval(() => {
   document.getElementById('clock').textContent = new Date().toLocaleTimeString('id-ID');
 }, 1000);
 
-// Mulai polling
-addLog('Inisialisasi dashboard HTTP polling...', '');
-setInterval(pollLatest, POLL_INTERVAL);
-setInterval(pollStats, 15000);  // update statistik tiap 15 detik
-pollLatest();                   // langsung poll pertama kali
+// Mulai koneksi ke bridge MQTT
+addLog('Inisialisasi dashboard MQTT realtime...', '');
+setInterval(pollStats, 15000);
+connectEvents();
 </script>
 </body>
 </html>
