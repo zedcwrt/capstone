@@ -2,5 +2,9 @@
   "name": "health-monitor",
   "version": "1.0.0",
   "description": "IoT Health Monitor Dashboard - ESP8266 + Vercel",
-  "private": true
+  "private": true,
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js"
+  }
 }
