@@ -30,7 +30,13 @@ function connect() {
     console.warn('[mqtt] MQTT_BROKER_URL belum diatur; bridge berjalan tanpa koneksi broker')
     return
   }
-  const client = mqtt.connect(brokerUrl, { clientId: `health-monitor-${Math.random().toString(16).slice(2)}`, reconnectPeriod: 5000, clean: true })
+  const client = mqtt.connect(brokerUrl, {
+    clientId: `health-monitor-${Math.random().toString(16).slice(2)}`,
+    username: process.env.MQTT_USERNAME,
+    password: process.env.MQTT_PASSWORD,
+    reconnectPeriod: 5000,
+    clean: true,
+  })
   client.on('connect', () => { connected = true; client.subscribe(topic, { qos: 1 }, error => error && console.error('[mqtt] Subscribe gagal:', error.message)) })
   client.on('close', () => { connected = false })
   client.on('error', error => console.error('[mqtt] Error:', error.message))
