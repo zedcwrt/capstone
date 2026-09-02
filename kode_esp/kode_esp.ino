@@ -1,172 +1,98 @@
 #include <ESP8266WiFi.h>
-#include <ESP8266HTTPClient.h>
-#include <WiFiClientSecure.h>
+#include <PubSubClient.h>
 #include <SoftwareSerial.h>
-
-// TAMBAHIN LIBRARY INI (Jangan lupa install WiFiManager by tzapu di Arduino IDE)
 #include <DNSServer.h>
 #include <ESP8266WebServer.h>
-#include <WiFiManager.h> 
+#include <WiFiManager.h>
 
 SoftwareSerial espSerial(D5, D6);
+WiFiClient wifiClient;
+PubSubClient mqtt(wifiClient);
 
-// Baris ssid dan password lama dihapus karena diganti otomatis sama WiFiManager
+// Isi sesuai broker MQTT milikmu. Gunakan port TLS jika broker mendukungnya.
+const char* mqttHost = "MQTT_BROKER_HOST";
+const uint16_t mqttPort = 1883;
+const char* mqttUser = "MQTT_USERNAME";
+const char* mqttPassword = "MQTT_PASSWORD";
+const char* mqttTopic = "cardiotemp/device/esp8266/data";
+const char* mqttClientId = "cardiotemp-esp8266";
 
-// ============================================================
-// GANTI URL ini dengan URL Vercel kamu setelah deploy
-// Contoh: "https://health-monitor-xyz.vercel.app/input"
-// ============================================================
-const char* server = "https://healthmonitor-4x919ds5n-zedcwrts-projects.vercel.app/api/input";
 String dataMasuk = "";
+unsigned long lastMqttAttempt = 0;
+
+void reconnectMqtt() {
+  if (mqtt.connected()) return;
+  if (millis() - lastMqttAttempt < 5000) return;
+  lastMqttAttempt = millis();
+  Serial.print("Menghubungkan ke MQTT...");
+  if (mqtt.connect(mqttClientId, mqttUser, mqttPassword)) {
+    Serial.println(" terhubung");
+  } else {
+    Serial.print(" gagal, rc=");
+    Serial.println(mqtt.state());
+  }
+}
 
 void setup() {
-
   Serial.begin(9600);
   espSerial.begin(9600);
+  Serial.println("\nSTART ESP MQTT");
 
-  Serial.println();
-  Serial.println("START ESP");
-
-  // ============================================================
-  // BAGIAN WIFIMANAGER START
-  // ============================================================
   WiFiManager wifiManager;
-
-  // Kalau mau reset Wi-Fi yang tersimpan tiap kali dinyalain (buat testing),
-  // lu tinggal lepas komen di bawah ini:
-  // wifiManager.resetSettings();
-
-  // Ini bakal bikin Access Point bernama "ESP-Health-Monitor" kalo gak nemu Wi-Fi.
-  // Lu tinggal konek ke AP itu pake HP/Laptop buat setting Wi-Fi baru lewat browser.
   if (!wifiManager.autoConnect("ESP-Health-Monitor")) {
-    Serial.println("Gagal konek dan time out");
+    Serial.println("Gagal konek WiFi");
     delay(3000);
     ESP.reset();
     delay(5000);
   }
-  // ============================================================
-  // BAGIAN WIFIMANAGER END
-  // ============================================================
-
-  Serial.println();
-  Serial.println("WIFI CONNECTED");
 
   Serial.print("IP ESP : ");
   Serial.println(WiFi.localIP());
+  mqtt.setServer(mqttHost, mqttPort);
 }
 
 void loop() {
+  if (!mqtt.connected()) reconnectMqtt();
+  mqtt.loop();
 
   while (espSerial.available()) {
-
     char c = espSerial.read();
     if (c == '\n') {
-
       dataMasuk.trim();
-      if (dataMasuk.length() > 0) {
-        kirimData(dataMasuk);
-      }
-
+      if (dataMasuk.length() > 0) kirimData(dataMasuk);
       dataMasuk = "";
-    }
-    else {
+    } else {
       dataMasuk += c;
     }
   }
 }
 
-// ============================================================
-// FUNGSI KIRIM DATA — logika parsing tidak diubah
-// ============================================================
 void kirimData(String data) {
-
-  int p1 = data.indexOf(',');
-  int p2 = data.indexOf(',', p1 + 1);
-  int p3 = data.indexOf(',', p2 + 1);
-  int p4 = data.indexOf(',', p3 + 1);
-
-  if (
-      p1 == -1 ||
-      p2 == -1 ||
-      p3 == -1 ||
-      p4 == -1
-     ) {
+  int p1 = data.indexOf(','), p2 = data.indexOf(',', p1 + 1);
+  int p3 = data.indexOf(',', p2 + 1), p4 = data.indexOf(',', p3 + 1);
+  if (p1 == -1 || p2 == -1 || p3 == -1 || p4 == -1) {
     Serial.println("FORMAT DATA SALAH");
     return;
   }
 
-  float hr =
-    data.substring(0, p1).toFloat();
-  float spo2 =
-    data.substring(p1 + 1, p2).toFloat();
+  float hr = data.substring(0, p1).toFloat();
+  float spo2 = data.substring(p1 + 1, p2).toFloat();
+  float temp = data.substring(p2 + 1, p3).toFloat();
+  String heartStatus = data.substring(p3 + 1, p4);
+  String tempStatus = data.substring(p4 + 1);
 
-  float temp =
-    data.substring(p2 + 1, p3).toFloat();
-  String heartStatus =
-    data.substring(p3 + 1, p4);
+  String json = "{\"hr\":" + String(hr, 1) +
+    ",\"spo2\":" + String(spo2, 1) +
+    ",\"temp\":" + String(temp, 1) +
+    ",\"heartStatus\":\"" + heartStatus +
+    "\",\"tempStatus\":\"" + tempStatus + "\"}";
 
-  String tempStatus =
-    data.substring(p4 + 1);
-
-  Serial.println();
-  Serial.println("DATA DARI ARDUINO");
-  Serial.println(data);
-
-  WiFiClientSecure client;
-  client.setInsecure();
-
-  HTTPClient http;
-
-  if (http.begin(client, server)) {
-
-    http.addHeader("Content-Type", "application/json");
-    String json = "{";
-
-    json += "\"hr\":";
-    json += String(hr, 1);
-    json += ",";
-
-    json += "\"spo2\":";
-    json += String(spo2, 1);
-    json += ",";
-
-    json += "\"temp\":";
-    json += String(temp, 1);
-    json += ",";
-    json += "\"heartStatus\":\"";
-    json += heartStatus;
-    json += "\",";
-    json += "\"tempStatus\":\"";
-    json += tempStatus;
-    json += "\"";
-
-    json += "}";
-
-    Serial.println();
-    Serial.println("JSON DIKIRIM:");
-    Serial.println(json);
-
-    int httpCode = http.POST(json);
-
-    Serial.print("HTTP CODE : ");
-    Serial.println(httpCode);
-    if (httpCode > 0) {
-
-      String payload = http.getString();
-
-      Serial.println("RESPON SERVER:");
-      Serial.println(payload);
-    }
-    else {
-
-      Serial.println("POST GAGAL");
-      Serial.println(http.errorToString(httpCode));
-    }
-
-    http.end();
-  }
-  else {
-
-    Serial.println("GAGAL KONEK KE SERVER");
+  if (mqtt.connected() && mqtt.publish(mqttTopic, json.c_str())) {
+    Serial.println("MQTT PUBLISH: " + json);
+  } else {
+    Serial.println("MQTT publish gagal");
   }
 }
+
+// Dependency Arduino IDE: PubSubClient by Nick O'Leary dan WiFiManager by tzapu.
+// Untuk TLS, ganti WiFiClient dengan WiFiClientSecure dan konfigurasi sertifikat broker.
