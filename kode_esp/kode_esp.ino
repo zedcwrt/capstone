@@ -9,8 +9,10 @@
 SoftwareSerial espSerial(D5, D6);
 WiFiClientSecure tlsClient;
 PubSubClient mqtt(tlsClient);
-const char* mqttHost = "YOUR_HIVEMQ_CLOUD_HOST";
-const int mqttPort = 8883;
+// Isi tiga nilai berikut sebelum upload firmware ke ESP8266.
+// Jangan commit password asli ke repository.
+const char* mqttHost = "YOUR_HIVEMQ_CLOUD_HOST"; // contoh: abc123.s1.eu.hivemq.cloud
+const uint16_t mqttPort = 8883;
 const char* mqttUser = "YOUR_MQTT_USERNAME";
 const char* mqttPassword = "YOUR_MQTT_PASSWORD";
 const char* mqttTopic = "health-monitor/sensors";
