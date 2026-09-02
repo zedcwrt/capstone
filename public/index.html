@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CardioTemp Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0d14;
+    --surface: #111620;
+    --surface2: #171e2e;
+    --border: rgba(255,255,255,0.07);
+    --text: #e8eaf0;
+    --muted: #6b7280;
+    --green: #22d3a0;
+    --green-dim: rgba(34,211,160,0.12);
+    --red: #f87171;
+    --red-dim: rgba(248,113,113,0.12);
+    --amber: #fbbf24;
+    --amber-dim: rgba(251,191,36,0.12);
+    --blue: #60a5fa;
+    --blue-dim: rgba(96,165,250,0.12);
+    --pulse: #ff4d6d;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 800px;
+    height: 400px;
+    background: radial-gradient(ellipse, rgba(34,211,160,0.06) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .wrapper { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 0 24px 48px; }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 28px 0 32px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 32px;
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon {
+    width: 38px; height: 38px; background: var(--green-dim);
+    border: 1px solid rgba(34,211,160,0.3); border-radius: 10px;
+    display: flex; align-items: center; justify-content: center; font-size: 18px;
+  }
+  .logo-text h1 { font-family: 'Space Mono', monospace; font-size: 15px; font-weight: 700; letter-spacing: 0.05em; color: var(--text); }
+  .logo-text p { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 1px; }
+  .status-bar { display: flex; align-items: center; gap: 20px; }
+  .conn-badge {
+    display: flex; align-items: center; gap: 7px; font-size: 12px; font-family: 'Space Mono', monospace;
+    padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); transition: all 0.3s;
+  }
+  .conn-badge.online { color: var(--green); border-color: rgba(34,211,160,0.3); background: var(--green-dim); }
+  .conn-badge.device-on { color: var(--blue); border-color: rgba(96,165,250,0.3); background: var(--blue-dim); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: pulse-dot 2s infinite; }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .time-display { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--muted); }
+  .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  @media (max-width: 768px) { .metrics-grid { grid-template-columns: repeat(2, 1fr); } }
+  .metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; position: relative; overflow: hidden; transition: border-color 0.3s; }
+  .metric-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: currentColor; opacity: 0.4; }
+  .metric-card.temp { color: var(--amber); }
+  .metric-card.hr   { color: var(--pulse); }
+  .metric-card.spo2 { color: var(--blue); }
+  .metric-card.status { color: var(--green); }
+  .metric-label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; font-weight: 500; }
+  .metric-value { font-family: 'Space Mono', monospace; font-size: 36px; font-weight: 700; color: currentColor; line-height: 1; transition: all 0.4s; }
+  .metric-value.flash { animation: flash-val 0.4s; }
+  @keyframes flash-val { 0% { opacity: 0.3; transform: scale(0.96); } 100% { opacity: 1; transform: scale(1); } }
+  .metric-unit { font-size: 13px; font-family: 'Space Mono', monospace; color: var(--muted); margin-left: 4px; }
+  .metric-sub { font-size: 11px; color: var(--muted); margin-top: 8px; }
+  .metric-icon { position: absolute; top: 16px; right: 16px; font-size: 26px; opacity: 0.15; }
+  .hr-icon { animation: beat 1s infinite; }
+  @keyframes beat { 0%, 100% { transform: scale(1); opacity: 0.15; } 50% { transform: scale(1.3); opacity: 0.3; } }
+  .bottom-grid { display: grid; grid-template-columns: 1fr 360px; gap: 16px; margin-bottom: 24px; }
+  @media (max-width: 900px) { .bottom-grid { grid-template-columns: 1fr; } }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .card-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); font-weight: 500; }
+  .legend { display: flex; gap: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); font-family: 'Space Mono', monospace; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+  canvas { display: block; }
+  .log-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; display: flex; flex-direction: column; }
+  .log-list { flex: 1; overflow-y: auto; max-height: 280px; display: flex; flex-direction: column; gap: 6px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+  .log-entry { font-family: 'Space Mono', monospace; font-size: 10px; line-height: 1.6; padding: 7px 10px; border-radius: 6px; background: var(--surface2); border-left: 2px solid var(--border); color: var(--muted); animation: slide-in 0.3s ease; }
+  @keyframes slide-in { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+  .log-entry.warn { border-left-color: var(--amber); color: var(--amber); }
+  .log-entry.error { border-left-color: var(--red); color: var(--red); }
+  .log-entry.ok { border-left-color: var(--green); color: var(--green); }
+  .log-entry .log-time { display: block; font-size: 9px; opacity: 0.5; margin-bottom: 1px; }
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 20px; }
+  .stat-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 12px; }
+  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 12px; font-family: 'Space Mono', monospace; }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-row .lbl { color: var(--muted); }
+  .stat-row .val { font-weight: 700; }
+  #alert-banner { display: none; align-items: center; gap: 12px; padding: 12px 18px; border-radius: 10px; background: var(--red-dim); border: 1px solid rgba(248,113,113,0.3); margin-bottom: 20px; font-size: 13px; color: var(--red); animation: slide-in 0.3s; }
+  #alert-banner.show { display: flex; }
+  #alert-banner span { flex: 1; }
+  .no-signal { text-align: center; padding: 40px; color: var(--muted); font-size: 13px; font-family: 'Space Mono', monospace; }
+  .no-signal-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.3; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <header>
+    <div class="logo">
+      <div class="logo-icon">❤️</div>
+      <div class="logo-text">
+        <h1>CardioTemp Dashboard</h1>
+        <p>Kel. 3 Rombel 11</p>
+      </div>
+    </div>
+    <div class="status-bar">
+      <div class="conn-badge" id="ws-status">
+        <div class="dot"></div>
+        <span>Connecting...</span>
+      </div>
+      <div class="conn-badge device-on" id="device-status" style="display:none">
+        <div class="dot"></div>
+        <span id="device-label">ESP8266_HTTP</span>
+      </div>
+      <div class="time-display" id="clock">--:--:--</div>
+    </div>
+  </header>
+
+  <div id="alert-banner">
+    <span>⚠️</span>
+    <span id="alert-msg">Alert</span>
+    <button onclick="closeAlert()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:16px">✕</button>
+  </div>
+
+  <div class="metrics-grid">
+    <div class="metric-card temp">
+      <div class="metric-label">Suhu Tubuh</div>
+      <div class="metric-value" id="val-temp">--<span class="metric-unit">°C</span></div>
+      <div class="metric-sub" id="sub-temp">Status: Standby</div>
+      <div class="metric-icon">🌡️</div>
+    </div>
+    <div class="metric-card hr">
+      <div class="metric-label">Detak Jantung</div>
+      <div class="metric-value" id="val-hr">--<span class="metric-unit">bpm</span></div>
+      <div class="metric-sub">Terakhir beat: <span id="sub-hr">--</span></div>
+      <div class="metric-icon hr-icon">❤️</div>
+    </div>
+    <div class="metric-card spo2">
+      <div class="metric-label">Saturasi O₂</div>
+      <div class="metric-value" id="val-spo2">--<span class="metric-unit">%</span></div>
+      <div class="metric-sub" id="sub-spo2">Normal ≥ 95%</div>
+      <div class="metric-icon">💨</div>
+    </div>
+    <div class="metric-card status">
+      <div class="metric-label">Status</div>
+      <div class="metric-value" id="val-status" style="font-size:20px;padding-top:8px">--</div>
+      <div class="metric-sub">Data ke-<span id="data-count">0</span></div>
+      <div class="metric-icon">✅</div>
+    </div>
+  </div>
+
+  <div class="bottom-grid">
+    <div class="chart-card">
+      <div class="card-header">
+        <div class="card-title">Riwayat Real-time (30 data terakhir)</div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div>Suhu</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--pulse)"></div>HR</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>SpO₂</div>
+        </div>
+      </div>
+      <canvas id="chart" height="220"></canvas>
+    </div>
+    <div class="log-card">
+      <div class="card-header">
+        <div class="card-title">Log Sistem</div>
+      </div>
+      <div class="log-list" id="log-list">
+        <div class="no-signal">
+          <div class="no-signal-icon">📡</div>
+          Menunggu data masuk...
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-title">🌡️ Statistik Suhu</div>
+      <div class="stat-row"><span class="lbl">Rata-rata</span><span class="val" id="s-temp-avg">--</span></div>
+      <div class="stat-row"><span class="lbl">Minimum</span><span class="val" id="s-temp-min">--</span></div>
+      <div class="stat-row"><span class="lbl">Maksimum</span><span class="val" id="s-temp-max">--</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">❤️ Statistik Detak</div>
+      <div class="stat-row"><span class="lbl">Rata-rata</span><span class="val" id="s-hr-avg">--</span></div>
+      <div class="stat-row"><span class="lbl">Minimum</span><span class="val" id="s-hr-min">--</span></div>
+      <div class="stat-row"><span class="lbl">Maksimum</span><span class="val" id="s-hr-max">--</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">💨 Statistik SpO₂</div>
+      <div class="stat-row"><span class="lbl">Rata-rata</span><span class="val" id="s-spo2-avg">--</span></div>
+      <div class="stat-row"><span class="lbl">Minimum</span><span class="val" id="s-spo2-min">--</span></div>
+      <div class="stat-row"><span class="lbl">Maksimum</span><span class="val" id="s-spo2-max">--</span></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// GANTI URL INI dengan URL Vercel kamu setelah deploy
+// Contoh: "https://health-monitor-xyz.vercel.app"
+// ============================================================
+const API_BASE = window.location.origin;
+
+// Interval polling dalam milidetik (default 3 detik)
+const POLL_INTERVAL = 3000;
+
+// ============================================================
+// CANVAS CHART
+// ============================================================
+const canvas = document.getElementById('chart');
+const ctx = canvas.getContext('2d');
+const MAX_POINTS = 30;
+
+let chartData = {
+  temp: Array(MAX_POINTS).fill(null),
+  hr:   Array(MAX_POINTS).fill(null),
+  spo2: Array(MAX_POINTS).fill(null),
+};
+
+function resizeCanvas() {
+  canvas.width = canvas.parentElement.clientWidth - 40;
+  drawChart();
+}
+
+function drawChart() {
+  const W = canvas.width;
+  const H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#111620';
+  ctx.fillRect(0, 0, W, H);
+
+  const PAD = { top: 10, right: 10, bottom: 30, left: 44 };
+  const CW = W - PAD.left - PAD.right;
+  const CH = H - PAD.top - PAD.bottom;
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = PAD.top + (CH / 4) * i;
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + CW, y); ctx.stroke();
+  }
+
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.font = '9px Space Mono, monospace';
+  ctx.textAlign = 'center';
+  for (let i = 0; i < MAX_POINTS; i += 5) {
+    const x = PAD.left + (CW / (MAX_POINTS - 1)) * i;
+    ctx.fillText(`-${MAX_POINTS - 1 - i}`, x, H - 8);
+  }
+
+  function drawLine(arr, color, minVal, maxVal) {
+    const valid = arr.filter(v => v !== null);
+    if (valid.length < 2) return;
+
+    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    let started = false;
+    arr.forEach((v, i) => {
+      if (v === null) { started = false; return; }
+      const x = PAD.left + (CW / (MAX_POINTS - 1)) * i;
+      const y = PAD.top + CH - ((v - minVal) / (maxVal - minVal)) * CH;
+      if (!started) { ctx.moveTo(x, y); started = true; }
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    const lastIdx = arr.length - 1;
+    if (arr[lastIdx] !== null) {
+      const x = PAD.left + CW;
+      const y = PAD.top + CH - ((arr[lastIdx] - minVal) / (maxVal - minVal)) * CH;
+      ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill();
+      ctx.fillStyle = color; ctx.font = '10px Space Mono, monospace'; ctx.textAlign = 'right';
+      ctx.fillText(arr[lastIdx].toFixed(1), x - 8, y - 6);
+    }
+  }
+
+  ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '9px Space Mono, monospace'; ctx.textAlign = 'right';
+  ctx.fillText('100', PAD.left - 4, PAD.top + 6); ctx.fillText('0', PAD.left - 4, PAD.top + CH);
+
+  drawLine(chartData.temp, '#fbbf24', 30, 42);
+  drawLine(chartData.hr,   '#ff4d6d', 40, 160);
+  drawLine(chartData.spo2, '#60a5fa', 80, 100);
+}
+
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// ============================================================
+// LOG
+// ============================================================
+const logList = document.getElementById('log-list');
+let logCount = 0;
+
+function addLog(msg, type = '') {
+  if (logCount === 0) logList.innerHTML = '';
+  logCount++;
+  const now = new Date().toLocaleTimeString('id-ID');
+  const el = document.createElement('div');
+  el.className = `log-entry ${type}`;
+  el.innerHTML = `<span class="log-time">${now}</span>${msg}`;
+  logList.prepend(el);
+  while (logList.children.length > 50) logList.removeChild(logList.lastChild);
+}
+
+// ============================================================
+// POLLING HTTP
+// ============================================================
+let dataCount = 0;
+let lastTimestamp = null;
+let serverOnline = false;
+let statsInterval = null;
+
+function setStatus(online) {
+  const badge = document.getElementById('ws-status');
+  if (online) {
+    badge.className = 'conn-badge online';
+    badge.querySelector('span').textContent = 'Server Online';
+  } else {
+    badge.className = 'conn-badge';
+    badge.querySelector('span').textContent = 'Server Offline';
+  }
+  serverOnline = online;
+}
+
+async function pollLatest() {
+  try {
+    const res = await fetch(`${API_BASE}/input?mode=latest`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const json = await res.json();
+    if (!serverOnline) {
+      setStatus(true);
+      addLog('Server Vercel terhubung ✓', 'ok');
+      // Muat history chart saat pertama konek
+      pollHistory();
+    }
+
+    if (json.data) {
+      const d = json.data;
+      // Hanya update jika data baru (cek timestamp)
+      if (d.timestamp !== lastTimestamp) {
+        lastTimestamp = d.timestamp;
+        updateMetrics(d);
+        showDeviceBadge('ESP8266_HTTP');
+      }
+    }
+  } catch (err) {
+    if (serverOnline) {
+      setStatus(false);
+      document.getElementById('device-status').style.display = 'none';
+      addLog('Server tidak bisa dijangkau: ' + err.message, 'error');
+    }
+  }
+}
+
+async function pollHistory() {
+  try {
+    const res = await fetch(`${API_BASE}/input?mode=history`);
+    const json = await res.json();
+    if (json.history && json.history.length > 0) {
+      addLog(`History: ${json.history.length} data dimuat`, 'ok');
+      json.history.slice(-MAX_POINTS).forEach(d => pushChartData(d));
+    }
+  } catch (_) {}
+}
+
+async function pollStats() {
+  try {
+    const res = await fetch(`${API_BASE}/input?mode=stats`);
+    const json = await res.json();
+    if (json.stats) updateStats(json.stats);
+  } catch (_) {}
+}
+
+function pushChartData(d) {
+  const normalize = (val, min, max) => Math.max(min, Math.min(max, val));
+  chartData.temp.push(d.body_temp > 0 ? normalize(d.body_temp, 30, 42) : null);
+  chartData.hr.push(d.heart_rate > 0 ? normalize(d.heart_rate, 40, 160) : null);
+  chartData.spo2.push(d.spo2 > 0 ? normalize(d.spo2, 80, 100) : null);
+  if (chartData.temp.length > MAX_POINTS) {
+    chartData.temp.shift(); chartData.hr.shift(); chartData.spo2.shift();
+  }
+  drawChart();
+}
+
+function updateMetrics(d) {
+  dataCount++;
+  document.getElementById('data-count').textContent = dataCount;
+
+  if (d.body_temp > 0) {
+    flashUpdate('val-temp', `${d.body_temp.toFixed(1)}<span class="metric-unit">°C</span>`);
+    document.getElementById('sub-temp').textContent = `Status: ${d.tempStatus || 'Terbaca'}`;
+  }
+  if (d.heart_rate > 0) {
+    flashUpdate('val-hr', `${Math.round(d.heart_rate)}<span class="metric-unit">bpm</span>`);
+    document.getElementById('sub-hr').textContent = new Date().toLocaleTimeString('id-ID');
+  }
+  if (d.spo2 > 0) {
+    flashUpdate('val-spo2', `${d.spo2.toFixed(1)}<span class="metric-unit">%</span>`);
+    const spo2El = document.getElementById('sub-spo2');
+    if (d.spo2 < 95) {
+      spo2El.textContent = '⚠️ Di bawah normal!'; spo2El.style.color = 'var(--red)';
+    } else {
+      spo2El.textContent = 'Normal ≥ 95%'; spo2El.style.color = 'var(--muted)';
+    }
+  }
+
+  const status = d.health_status || 'Normal';
+  const statusEl = document.getElementById('val-status');
+  statusEl.innerHTML = status;
+  statusEl.style.color = status === 'Normal' ? 'var(--green)' : 'var(--red)';
+
+  addLog(
+    `POLL -> T:${d.body_temp?.toFixed(1)}°C HR:${Math.round(d.heart_rate)}bpm SpO2:${d.spo2?.toFixed(1)}%`,
+    status === 'Normal' ? '' : 'warn'
+  );
+  pushChartData(d);
+}
+
+function flashUpdate(id, html) {
+  const el = document.getElementById(id);
+  el.innerHTML = html; el.classList.remove('flash');
+  void el.offsetWidth; el.classList.add('flash');
+}
+
+function updateStats(s) {
+  if (s.temp) {
+    document.getElementById('s-temp-avg').textContent = (s.temp.avg || '--') + '°C';
+    document.getElementById('s-temp-min').textContent = (s.temp.min || '--') + '°C';
+    document.getElementById('s-temp-max').textContent = (s.temp.max || '--') + '°C';
+  }
+  if (s.hr) {
+    document.getElementById('s-hr-avg').textContent = (s.hr.avg || '--') + ' bpm';
+    document.getElementById('s-hr-min').textContent = (s.hr.min || '--') + ' bpm';
+    document.getElementById('s-hr-max').textContent = (s.hr.max || '--') + ' bpm';
+  }
+  if (s.spo2) {
+    document.getElementById('s-spo2-avg').textContent = (s.spo2.avg || '--') + '%';
+    document.getElementById('s-spo2-min').textContent = (s.spo2.min || '--') + '%';
+    document.getElementById('s-spo2-max').textContent = (s.spo2.max || '--') + '%';
+  }
+}
+
+function showDeviceBadge(deviceId) {
+  const badge = document.getElementById('device-status');
+  badge.style.display = 'flex';
+  document.getElementById('device-label').textContent = deviceId;
+}
+
+function showAlert(msg) {
+  const banner = document.getElementById('alert-banner');
+  document.getElementById('alert-msg').textContent = msg;
+  banner.classList.add('show');
+}
+function closeAlert() { document.getElementById('alert-banner').classList.remove('show'); }
+
+// Jam real-time
+setInterval(() => {
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString('id-ID');
+}, 1000);
+
+// Mulai polling
+addLog('Inisialisasi dashboard HTTP polling...', '');
+setInterval(pollLatest, POLL_INTERVAL);
+setInterval(pollStats, 15000);  // update statistik tiap 15 detik
+pollLatest();                   // langsung poll pertama kali
+</script>
+</body>
+</html>

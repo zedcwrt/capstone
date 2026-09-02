@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "routes": [
+    { "src": "/input", "dest": "/api/input" },
+    { "src": "/(.*)", "dest": "/public/$1" }
+  ]
+}
