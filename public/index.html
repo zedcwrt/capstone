@@ -234,7 +234,17 @@
 
 </div>
 
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 <script>
+// ============================================================
+// Konfigurasi broker MQTT over WebSocket milikmu.
+// Broker harus menyediakan WSS agar browser dapat terhubung aman.
+// ============================================================
+const MQTT_WS_URL = 'wss://MQTT_BROKER_HOST:8084/mqtt';
+const MQTT_USERNAME = 'MQTT_USERNAME';
+const MQTT_PASSWORD = 'MQTT_PASSWORD';
+const MQTT_TOPIC = 'cardiotemp/device/esp8266/data';
+
 // ============================================================
 // GANTI URL INI dengan URL Vercel kamu setelah deploy
 // Contoh: "https://health-monitor-xyz.vercel.app"
@@ -342,12 +352,12 @@ function addLog(msg, type = '') {
 }
 
 // ============================================================
-// POLLING HTTP
+// MQTT REAL-TIME
 // ============================================================
 let dataCount = 0;
-let lastTimestamp = null;
 let serverOnline = false;
 let statsInterval = null;
+let mqttClient = null;
 
 function setStatus(online) {
   const badge = document.getElementById('ws-status');
@@ -359,6 +369,47 @@ function setStatus(online) {
     badge.querySelector('span').textContent = 'Server Offline';
   }
   serverOnline = online;
+}
+
+function handleMqttMessage(topic, payload) {
+  try {
+    const raw = JSON.parse(payload.toString());
+    const d = {
+      heart_rate: Number(raw.hr), spo2: Number(raw.spo2), body_temp: Number(raw.temp),
+      heartStatus: raw.heartStatus, tempStatus: raw.tempStatus,
+      health_status: raw.heartStatus === 'Normal' && raw.tempStatus === 'Normal' ? 'Normal' : `${raw.heartStatus} / ${raw.tempStatus}`,
+      timestamp: new Date().toISOString()
+    };
+    updateMetrics(d);
+    showDeviceBadge('ESP8266_MQTT');
+  } catch (err) {
+    addLog('Payload MQTT tidak valid: ' + err.message, 'error');
+  }
+}
+
+function connectMqtt() {
+  if (!window.mqtt || MQTT_WS_URL.includes('MQTT_BROKER_HOST')) {
+    setStatus(false);
+    addLog('Konfigurasi MQTT belum diisi (host dan WSS broker).', 'warn');
+    return;
+  }
+  mqttClient = mqtt.connect(MQTT_WS_URL, {
+    username: MQTT_USERNAME, password: MQTT_PASSWORD,
+    clientId: 'cardiotemp-dashboard-' + Math.random().toString(16).slice(2),
+    reconnectPeriod: 3000, connectTimeout: 10000
+  });
+  mqttClient.on('connect', () => {
+    setStatus(true); document.getElementById('ws-status').querySelector('span').textContent = 'MQTT Online';
+    addLog('Broker MQTT terhubung ✓', 'ok');
+    mqttClient.subscribe(MQTT_TOPIC, (err) => {
+      if (err) addLog('Subscribe MQTT gagal: ' + err.message, 'error');
+      else addLog('Subscribe: ' + MQTT_TOPIC, 'ok');
+    });
+  });
+  mqttClient.on('message', handleMqttMessage);
+  mqttClient.on('reconnect', () => addLog('Mencoba reconnect ke broker MQTT...', 'warn'));
+  mqttClient.on('error', (err) => { setStatus(false); addLog('MQTT error: ' + err.message, 'error'); });
+  mqttClient.on('close', () => setStatus(false));
 }
 
 async function pollLatest() {
@@ -450,7 +501,7 @@ function updateMetrics(d) {
   statusEl.style.color = status === 'Normal' ? 'var(--green)' : 'var(--red)';
 
   addLog(
-    `POLL -> T:${d.body_temp?.toFixed(1)}°C HR:${Math.round(d.heart_rate)}bpm SpO2:${d.spo2?.toFixed(1)}%`,
+    `MQTT -> T:${d.body_temp?.toFixed(1)}°C HR:${Math.round(d.heart_rate)}bpm SpO2:${d.spo2?.toFixed(1)}%`,
     status === 'Normal' ? '' : 'warn'
   );
   pushChartData(d);
@@ -498,11 +549,12 @@ setInterval(() => {
   document.getElementById('clock').textContent = new Date().toLocaleTimeString('id-ID');
 }, 1000);
 
-// Mulai polling
-addLog('Inisialisasi dashboard HTTP polling...', '');
-setInterval(pollLatest, POLL_INTERVAL);
-setInterval(pollStats, 15000);  // update statistik tiap 15 detik
-pollLatest();                   // langsung poll pertama kali
+// Mulai MQTT real-time; HTTP hanya dipakai untuk statistik/history legacy.
+addLog('Inisialisasi dashboard MQTT real-time...', '');
+pollHistory();
+pollStats();
+setInterval(pollStats, 15000);
+connectMqtt();
 </script>
 </body>
 </html>
