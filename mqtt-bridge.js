@@ -3,12 +3,26 @@ const mqtt = require('mqtt')
 const MAX_HISTORY = 100
 const topic = process.env.MQTT_TOPIC || 'health-monitor/sensors'
 
-// URL HiveMQ lu langsung di-hardcode sebagai fallback kalo .env kosong[cite: 4]
-const DEFAULT_BROKER_URL = 'mqtts://a4f2c2c7a33540f88424719acac8ccc4.s1.cu.hivemq.cloud:8883'
+// URL HiveMQ lu langsung di-hardcode sebagai fallback kalo .env kosong
+// (host ini HARUS sama persis dengan host di firmware ESP32 / README)
+const DEFAULT_BROKER_URL = 'mqtts://a4f2e2e7a33540f88424719acae8eec4.s1.eu.hivemq.cloud:8883'
 
 function getSanitizedBrokerUrl() {
-  let url = process.env.MQTT_BROKER_URL || DEFAULT_BROKER_URL
-  url = url.trim()
+  let url
+
+  if (process.env.MQTT_BROKER_URL) {
+    // Prioritas 1: MQTT_BROKER_URL langsung (format: mqtts://host:port)
+    url = process.env.MQTT_BROKER_URL.trim()
+  } else if (process.env.MQTT_HOST) {
+    // Prioritas 2: rakit dari MQTT_HOST + MQTT_PORT + MQTT_TLS (sesuai README)
+    const host = process.env.MQTT_HOST.trim()
+    const port = process.env.MQTT_PORT || '8883'
+    const useTls = (process.env.MQTT_TLS || 'true').toLowerCase() !== 'false'
+    url = `${useTls ? 'mqtts' : 'mqtt'}://${host}:${port}`
+  } else {
+    // Prioritas 3: fallback hardcoded
+    url = DEFAULT_BROKER_URL
+  }
 
   // Nambahin protokol otomatis kalo kelupaan
   if (!/^((mqtt|mqtts|ws|wss):\/\/)/i.test(url)) {
@@ -84,7 +98,9 @@ function connect() {
 
   const client = mqtt.connect(brokerUrl, {
     clientId: process.env.MQTT_CLIENT_ID || `health-monitor-backend-${Math.random().toString(16).slice(2)}`,
-    // MASUKIN USERNAME DAN PASSWORD HIVEMQ LU DI BAWAH INI KALO GA PAKE .ENV:
+    // Idealnya kredensial selalu dari environment variable (jangan commit ke Git).
+    // Fallback di bawah ini dipertahankan supaya tetap jalan tanpa .env,
+    // tapi sebaiknya diganti env var untuk deployment production.
     username: process.env.MQTT_USERNAME || 'admin_cardiotemp',
     password: process.env.MQTT_PASSWORD || 'VWJeYMp5twME4Ee',
     reconnectPeriod: 5000,
