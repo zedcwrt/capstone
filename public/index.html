@@ -234,9 +234,10 @@
 
 </div>
 
-<script>
-// ============================================================
-// GANTI URL INI dengan URL Vercel kamu setelah deploy
+  <script src="https://unpkg.com/mqtt@5.14.1/dist/mqtt.min.js"></script>
+  <script>
+  // ============================================================
+  // GANTI URL INI dengan URL Vercel kamu setelah deploy
 // Contoh: "https://health-monitor-xyz.vercel.app"
 // ============================================================
 const API_BASE = window.location.origin;
@@ -341,42 +342,85 @@ function addLog(msg, type = '') {
   while (logList.children.length > 50) logList.removeChild(logList.lastChild);
 }
 
-// ============================================================
-// MQTT bridge via Server-Sent Events
-// ============================================================
-let dataCount = 0;
-let lastTimestamp = null;
-let serverOnline = false;
-let statsInterval = null;
-let eventSource = null;
-
-function setStatus(online) {
-  const badge = document.getElementById('ws-status');
-  if (online) {
-    badge.className = 'conn-badge online';
-    badge.querySelector('span').textContent = 'Server Online';
-  } else {
-    badge.className = 'conn-badge';
-    badge.querySelector('span').textContent = 'Server Offline';
-  }
-  serverOnline = online;
-}
-
-
-function connectEvents() {
-  eventSource = new EventSource(`${API_BASE}/events`);
-  eventSource.onopen = () => { setStatus(true); addLog('MQTT bridge terhubung ✓', 'ok'); };
-  eventSource.onerror = () => { setStatus(false); addLog('MQTT bridge offline, mencoba ulang...', 'error'); };
-  eventSource.onmessage = event => {
-    const d = JSON.parse(event.data);
-    if (d.timestamp && d.timestamp !== lastTimestamp) { lastTimestamp = d.timestamp; updateMetrics(d); showDeviceBadge('ESP8266_MQTT'); }
+  // ============================================================
+  // MQTT over WebSocket — HiveMQ Cloud
+  // ESP32 publishes CSV: hr,spo2,temp,heartStatus,tempStatus
+  // HiveMQ Cloud WebSocket TLS endpoint uses port 8884 and /mqtt.
+  // ============================================================
+  let dataCount = 0;
+  let lastTimestamp = null;
+  let serverOnline = false;
+  let statsInterval = null;
+  let mqttClient = null;
+  const mqttConfig = {
+    host: 'a4f2e2e7a33540f88424719acae8eec4.s1.eu.hivemq.cloud',
+    port: 8884,
+    path: '/mqtt',
+    username: 'admin_cardiotemp',
+    password: 'VWJeYMp5twME4Ee',
+    topic: 'health-monitor/sensors'
   };
-  eventSource.addEventListener('snapshot', event => {
-    const snapshot = JSON.parse(event.data);
-    if (snapshot.history?.length) snapshot.history.slice(-MAX_POINTS).forEach(pushChartData);
-    if (snapshot.data && snapshot.data.timestamp !== lastTimestamp) { lastTimestamp = snapshot.data.timestamp; updateMetrics(snapshot.data); }
-  });
-}
+
+  function setStatus(online) {
+    const badge = document.getElementById('ws-status');
+    badge.className = online ? 'conn-badge online' : 'conn-badge';
+    badge.querySelector('span').textContent = online ? 'MQTT Online' : 'MQTT Offline';
+    serverOnline = online;
+  }
+
+  function parseMqttPayload(payload) {
+    const [hr, spo2, temp, heartStatus, tempStatus] = payload.trim().split(',');
+    const heartRate = Number.parseFloat(hr);
+    const oxygen = Number.parseFloat(spo2);
+    const bodyTemp = Number.parseFloat(temp);
+    if (![heartRate, oxygen, bodyTemp].every(Number.isFinite)) return null;
+    return {
+      heart_rate: heartRate,
+      spo2: oxygen,
+      body_temp: bodyTemp,
+      heartStatus: heartStatus || 'Terbaca',
+      tempStatus: tempStatus || 'Terbaca',
+      health_status: heartStatus === 'Normal' && tempStatus === 'Normal'
+        ? 'Normal' : `${heartStatus || 'Terbaca'} / ${tempStatus || 'Terbaca'}`,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  function connectMqtt() {
+    if (typeof mqtt === 'undefined') {
+      setStatus(false);
+      addLog('Library MQTT.js gagal dimuat', 'error');
+      return;
+    }
+    addLog(`Menghubungkan ke ${mqttConfig.host} via WSS...`);
+    mqttClient = mqtt.connect(`wss://${mqttConfig.host}:${mqttConfig.port}${mqttConfig.path}`, {
+      username: mqttConfig.username,
+      password: mqttConfig.password,
+      clientId: `dashboard-${Math.random().toString(16).slice(2)}`,
+      clean: true,
+      reconnectPeriod: 5000,
+      connectTimeout: 10000,
+      protocolVersion: 4
+    });
+    mqttClient.on('connect', () => {
+      setStatus(true);
+      mqttClient.subscribe(mqttConfig.topic, err => {
+        if (err) addLog(`Subscribe gagal: ${err.message}`, 'error');
+        else addLog(`MQTT terhubung, subscribe ${mqttConfig.topic}`, 'ok');
+      });
+    });
+    mqttClient.on('message', (topic, message) => {
+      if (topic !== mqttConfig.topic) return;
+      const data = parseMqttPayload(message.toString());
+      if (!data) return addLog('Payload MQTT tidak valid', 'error');
+      lastTimestamp = data.timestamp;
+      updateMetrics(data);
+      showDeviceBadge('ESP32_HIVEMQ');
+    });
+    mqttClient.on('reconnect', () => { setStatus(false); addLog('MQTT reconnect...', 'warn'); });
+    mqttClient.on('error', err => { setStatus(false); addLog(`MQTT error: ${err.message}`, 'error'); });
+    mqttClient.on('close', () => setStatus(false));
+  }
 
 async function pollHistory() {
   try {
@@ -484,10 +528,10 @@ setInterval(() => {
   document.getElementById('clock').textContent = new Date().toLocaleTimeString('id-ID');
 }, 1000);
 
-// Mulai koneksi ke bridge MQTT
-addLog('Inisialisasi dashboard MQTT realtime...', '');
-setInterval(pollStats, 15000);
-connectEvents();
+  // Mulai koneksi langsung ke HiveMQ Cloud melalui MQTT over WebSocket
+  addLog('Inisialisasi dashboard MQTT realtime...', '');
+  setInterval(pollStats, 15000);
+  connectMqtt();
 </script>
 </body>
 </html>
