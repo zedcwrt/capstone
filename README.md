@@ -71,6 +71,28 @@ vercel --prod
 
 ---
 
+## MQTT HiveMQ Cloud untuk ESP32
+
+ESP32 pada `kode_esp/kode_esp.ino` mengirim CSV ke topic `health-monitor/sensors`. Backend Node membaca topic yang sama dan meneruskan data ke dashboard melalui SSE.
+
+Set environment variable backend berikut sebelum menjalankan `npm start`:
+
+```env
+MQTT_HOST=a4f2e2e7a33540f88424719acae8eec4.s1.eu.hivemq.cloud
+MQTT_PORT=8883
+MQTT_TLS=true
+MQTT_USERNAME=admin_cardiotemp
+MQTT_PASSWORD=PASSWORD_HIVEMQ
+MQTT_TOPIC=health-monitor/sensors
+```
+
+Backend otomatis memakai `mqtts://` untuk port 8883. Alternatifnya, gunakan `MQTT_BROKER_URL=mqtts://HOST:8883`. Jangan menaruh username/password di source code atau commit ke Git. Pastikan kredensial pada firmware ESP32 sama dengan environment backend, topic persis sama, dan setiap device memakai client ID unik.
+
+Endpoint lokal:
+- `GET /health` — status koneksi MQTT
+- `GET /input` — data terbaru
+- `GET /events` — stream data real-time dashboard
+
 ## ⚙️ Konfigurasi Setelah Deploy
 
 ### Update URL di kode ESP
