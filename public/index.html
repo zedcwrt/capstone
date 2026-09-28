@@ -56,9 +56,8 @@
   }
   .wrapper { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 0 24px 48px; }
   header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 20px;
     padding: 28px 0 32px;
     border-bottom: 1px solid var(--border);
     margin-bottom: 32px;
@@ -127,6 +126,43 @@
   .log-entry .log-time { display: block; font-size: 9px; opacity: 0.5; margin-bottom: 1px; }
   .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
   .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 20px; }
+  @media (max-width: 600px) {
+    .wrapper { padding: 0 12px 28px; }
+    header { align-items: flex-start; flex-direction: column; gap: 14px; padding: 18px 0 20px; margin-bottom: 20px; }
+    .logo { gap: 9px; }
+    .logo-icon { width: 34px; height: 34px; font-size: 16px; }
+    .logo-text h1 { font-size: 13px; }
+    .logo-text p { font-size: 9px; }
+    .status-bar { width: 100%; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+    .conn-badge { font-size: 10px; padding: 5px 8px; }
+    .time-display { font-size: 10px; margin-left: auto; }
+    .metrics-grid { gap: 10px; margin-bottom: 14px; }
+    .metric-card { padding: 14px 12px; border-radius: 11px; min-width: 0; }
+    .metric-label { font-size: 8px; letter-spacing: 0.08em; white-space: nowrap; }
+    .metric-value { font-size: 25px; white-space: nowrap; }
+    .metric-value[style] { font-size: 16px !important; }
+    .metric-unit { font-size: 10px; }
+    .metric-sub { font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .metric-icon { top: 10px; right: 10px; font-size: 20px; }
+    .bottom-grid { gap: 12px; margin-bottom: 14px; }
+    .chart-card, .log-card { padding: 14px 12px; border-radius: 11px; }
+    .card-header { align-items: flex-start; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+    .card-title { font-size: 9px; }
+    .legend { width: 100%; justify-content: space-between; gap: 6px; }
+    .legend-item { font-size: 9px; }
+    .chart-hint { font-size: 8px; margin: -3px 0 8px; }
+    #chart { width: 100%; height: auto; min-height: 170px; }
+    .chart-tooltip { min-width: 160px; font-size: 9px; }
+    .log-list { max-height: 220px; }
+    .stats-row { grid-template-columns: 1fr; gap: 10px; }
+    .stat-card { padding: 13px 14px; border-radius: 11px; }
+    .stat-title { font-size: 9px; margin-bottom: 8px; }
+  }
+  @media (min-width: 601px) and (max-width: 900px) {
+    .wrapper { padding-left: 16px; padding-right: 16px; }
+    .metrics-grid { gap: 12px; }
+    .metric-card { padding: 16px; }
+  }
   .stat-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 12px; }
   .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 12px; font-family: 'Space Mono', monospace; }
   .stat-row:last-child { border-bottom: none; }
@@ -273,10 +309,10 @@ let chartData = {
 let chartPoints = Array(MAX_POINTS).fill(null);
 let selectedChartIndex = null;
 
-function resizeCanvas() {
-  canvas.width = canvas.parentElement.clientWidth - 40;
+  function resizeCanvas() {
+  canvas.width = Math.max(280, canvas.parentElement.clientWidth);
   drawChart();
-}
+  }
 
 function drawChart() {
   const W = canvas.width;
