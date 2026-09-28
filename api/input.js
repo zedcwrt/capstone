@@ -58,6 +58,11 @@ export default function handler(req, res) {
       health_status: body.heartStatus === 'Normal' && body.tempStatus === 'Normal'
                       ? 'Normal'
                       : `${body.heartStatus} / ${body.tempStatus}`,
+      // "final" membedakan hasil terkunci (akhir siklus) dari data pratinjau
+      // yang dikirim tiap beberapa detik selama pengukuran (grafik live).
+      // Default true supaya tetap kompatibel dengan firmware lama yang
+      // tidak mengirim field ini sama sekali.
+      final: body.final === undefined ? true : Boolean(body.final),
       timestamp:    new Date().toISOString(),
     };
 

@@ -296,8 +296,10 @@
 // ============================================================
 const API_BASE = window.location.origin;
 
-// Interval polling dalam milidetik (default 3 detik)
-const POLL_INTERVAL = 3000;
+// Interval polling dalam milidetik. Dipercepat ke 1.5 detik supaya lebih
+// sering menangkap data "live" yang dikirim ESP32 tiap 2 detik selama
+// pengukuran, sehingga grafik terlihat bergerak, bukan cuma 1 titik.
+const POLL_INTERVAL = 1500;
 
 // ============================================================
 // CANVAS CHART
@@ -483,7 +485,7 @@ async function pollLatest() {
       if (d.timestamp !== lastTimestamp) {
         lastTimestamp = d.timestamp;
         updateMetrics(d);
-        showDeviceBadge('ESP8266_HTTP');
+        showDeviceBadge('ESP32_HTTP');
       }
     }
   } catch (err) {
@@ -553,13 +555,18 @@ function updateMetrics(d) {
   statusEl.innerHTML = status;
   statusEl.style.color = status === 'Normal' ? 'var(--green)' : 'var(--red)';
 
-  if (status !== 'Normal') {
+  // d.final bisa undefined (data lama / mode lain) - anggap final supaya
+  // perilaku lama tetap sama. Alert layar penuh HANYA untuk hasil FINAL,
+  // supaya tidak muncul berulang tiap 2 detik selama pengukuran berjalan
+  // (bacaan sementara sering belum stabil / wajar terlihat "abnormal").
+  const isFinal = d.final !== false;
+  if (isFinal && status !== 'Normal') {
     showAlert(`⚠️ Waspada! Status: ${status} | Temp: ${d.body_temp?.toFixed(1)}°C | HR: ${Math.round(d.heart_rate)} bpm`);
   }
 
   addLog(
-    `POLL -> T:${d.body_temp?.toFixed(1)}°C HR:${Math.round(d.heart_rate)}bpm SpO2:${d.spo2?.toFixed(1)}%`,
-    status === 'Normal' ? '' : 'warn'
+    `${isFinal ? 'FINAL' : 'live'} -> T:${d.body_temp?.toFixed(1)}°C HR:${Math.round(d.heart_rate)}bpm SpO2:${d.spo2?.toFixed(1)}%`,
+    !isFinal ? '' : (status === 'Normal' ? 'ok' : 'warn')
   );
   pushChartData(d);
 }
