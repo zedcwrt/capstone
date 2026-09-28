@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CardioTemp Dashboard</title>
+<title>IoT Health Monitor</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -136,8 +136,8 @@
     <div class="logo">
       <div class="logo-icon">❤️</div>
       <div class="logo-text">
-        <h1>CardioTemp Dashboard</h1>
-        <p>Kel. 3 Rombel 11</p>
+        <h1>HEALTH MONITOR</h1>
+        <p>ESP8266 · VERCEL DASHBOARD</p>
       </div>
     </div>
     <div class="status-bar">
@@ -342,13 +342,12 @@ function addLog(msg, type = '') {
 }
 
 // ============================================================
-// MQTT bridge via Server-Sent Events
+// POLLING HTTP
 // ============================================================
 let dataCount = 0;
 let lastTimestamp = null;
 let serverOnline = false;
 let statsInterval = null;
-let eventSource = null;
 
 function setStatus(online) {
   const badge = document.getElementById('ws-status');
@@ -362,20 +361,35 @@ function setStatus(online) {
   serverOnline = online;
 }
 
+async function pollLatest() {
+  try {
+    const res = await fetch(`${API_BASE}/input?mode=latest`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-function connectEvents() {
-  eventSource = new EventSource(`${API_BASE}/events`);
-  eventSource.onopen = () => { setStatus(true); addLog('MQTT bridge terhubung ✓', 'ok'); };
-  eventSource.onerror = () => { setStatus(false); addLog('MQTT bridge offline, mencoba ulang...', 'error'); };
-  eventSource.onmessage = event => {
-    const d = JSON.parse(event.data);
-    if (d.timestamp && d.timestamp !== lastTimestamp) { lastTimestamp = d.timestamp; updateMetrics(d); showDeviceBadge('ESP8266_MQTT'); }
-  };
-  eventSource.addEventListener('snapshot', event => {
-    const snapshot = JSON.parse(event.data);
-    if (snapshot.history?.length) snapshot.history.slice(-MAX_POINTS).forEach(pushChartData);
-    if (snapshot.data && snapshot.data.timestamp !== lastTimestamp) { lastTimestamp = snapshot.data.timestamp; updateMetrics(snapshot.data); }
-  });
+    const json = await res.json();
+    if (!serverOnline) {
+      setStatus(true);
+      addLog('Server Vercel terhubung ✓', 'ok');
+      // Muat history chart saat pertama konek
+      pollHistory();
+    }
+
+    if (json.data) {
+      const d = json.data;
+      // Hanya update jika data baru (cek timestamp)
+      if (d.timestamp !== lastTimestamp) {
+        lastTimestamp = d.timestamp;
+        updateMetrics(d);
+        showDeviceBadge('ESP8266_HTTP');
+      }
+    }
+  } catch (err) {
+    if (serverOnline) {
+      setStatus(false);
+      document.getElementById('device-status').style.display = 'none';
+      addLog('Server tidak bisa dijangkau: ' + err.message, 'error');
+    }
+  }
 }
 
 async function pollHistory() {
@@ -435,6 +449,10 @@ function updateMetrics(d) {
   statusEl.innerHTML = status;
   statusEl.style.color = status === 'Normal' ? 'var(--green)' : 'var(--red)';
 
+  if (status !== 'Normal') {
+    showAlert(`⚠️ Waspada! Status: ${status} | Temp: ${d.body_temp?.toFixed(1)}°C | HR: ${Math.round(d.heart_rate)} bpm`);
+  }
+
   addLog(
     `POLL -> T:${d.body_temp?.toFixed(1)}°C HR:${Math.round(d.heart_rate)}bpm SpO2:${d.spo2?.toFixed(1)}%`,
     status === 'Normal' ? '' : 'warn'
@@ -484,10 +502,11 @@ setInterval(() => {
   document.getElementById('clock').textContent = new Date().toLocaleTimeString('id-ID');
 }, 1000);
 
-// Mulai koneksi ke bridge MQTT
-addLog('Inisialisasi dashboard MQTT realtime...', '');
-setInterval(pollStats, 15000);
-connectEvents();
+// Mulai polling
+addLog('Inisialisasi dashboard HTTP polling...', '');
+setInterval(pollLatest, POLL_INTERVAL);
+setInterval(pollStats, 15000);  // update statistik tiap 15 detik
+pollLatest();                   // langsung poll pertama kali
 </script>
 </body>
 </html>

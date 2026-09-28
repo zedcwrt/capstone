@@ -1,104 +1,172 @@
-#include <WiFi.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
 #include <WiFiClientSecure.h>
-#include <PubSubClient.h>
-#include <WiFiManager.h>
+#include <SoftwareSerial.h>
 
-// Isi nilai HiveMQ Cloud sebelum upload firmware.
-// Jangan commit password asli ke repository.
-const char* mqttHost = "YOUR_HIVEMQ_CLOUD_HOST";
-const uint16_t mqttPort = 8883;
-const char* mqttUser = "YOUR_MQTT_USERNAME";
-const char* mqttPassword = "YOUR_MQTT_PASSWORD";
-const char* mqttTopic = "health-monitor/sensors";
+// TAMBAHIN LIBRARY INI (Jangan lupa install WiFiManager by tzapu di Arduino IDE)
+#include <DNSServer.h>
+#include <ESP8266WebServer.h>
+#include <WiFiManager.h> 
 
-// UART dari modul sensor. Sesuaikan jika kabel memakai pin berbeda.
-constexpr int SENSOR_RX_PIN = 16;
-constexpr int SENSOR_TX_PIN = 17;
-constexpr uint32_t SERIAL_BAUD = 9600;
+SoftwareSerial espSerial(D5, D6);
 
-HardwareSerial sensorSerial(2);
-WiFiClientSecure tlsClient;
-PubSubClient mqtt(tlsClient);
-String dataMasuk;
-unsigned long lastMqttAttempt = 0;
+// Baris ssid dan password lama dihapus karena diganti otomatis sama WiFiManager
 
-void reconnectMqtt() {
-  if (WiFi.status() != WL_CONNECTED || mqtt.connected()) return;
-  const unsigned long now = millis();
-  if (now - lastMqttAttempt < 5000) return;
-  lastMqttAttempt = now;
-
-  const String clientId = "esp32-health-" + String((uint32_t)(ESP.getEfuseMac() & 0xFFFFFFFF), HEX);
-  Serial.println("Menghubungkan ke HiveMQ Cloud...");
-  if (mqtt.connect(clientId.c_str(), mqttUser, mqttPassword)) {
-    Serial.println("MQTT terhubung");
-  } else {
-    Serial.printf("MQTT gagal, rc=%d\n", mqtt.state());
-  }
-}
-
-bool isValidPayload(const String& data) {
-  int commas = 0;
-  for (size_t i = 0; i < data.length(); i++) {
-    if (data[i] == ',') commas++;
-  }
-  return commas == 4;
-}
-
-void publishSensorData(String data) {
-  data.trim();
-  if (!isValidPayload(data)) {
-    Serial.println("FORMAT DATA SALAH: gunakan hr,spo2,temp,heartStatus,tempStatus");
-    return;
-  }
-
-  if (!mqtt.connected()) {
-    Serial.println("MQTT belum terhubung; data tidak dikirim");
-    return;
-  }
-
-  if (mqtt.publish(mqttTopic, data.c_str(), true)) {
-    Serial.print("MQTT PUBLISH: ");
-    Serial.println(data);
-  } else {
-    Serial.println("MQTT PUBLISH GAGAL");
-  }
-}
+// ============================================================
+// GANTI URL ini dengan URL Vercel kamu setelah deploy
+// Contoh: "https://health-monitor-xyz.vercel.app/input"
+// ============================================================
+const char* server = "https://project-30tsr-eghid9h46-zedcwrts-projects.vercel.app/api/input";
+String dataMasuk = "";
 
 void setup() {
-  Serial.begin(115200);
-  sensorSerial.begin(SERIAL_BAUD, SERIAL_8N1, SENSOR_RX_PIN, SENSOR_TX_PIN);
 
+  Serial.begin(9600);
+  espSerial.begin(9600);
+
+  Serial.println();
+  Serial.println("START ESP");
+
+  // ============================================================
+  // BAGIAN WIFIMANAGER START
+  // ============================================================
   WiFiManager wifiManager;
-  wifiManager.setConfigPortalTimeout(180);
-  if (!wifiManager.autoConnect("ESP32-Health-Monitor")) {
-    Serial.println("WiFi gagal terhubung; restart...");
-    ESP.restart();
-  }
 
-  // TLS tetap aktif. Verifikasi CA dapat ditambahkan untuk produksi.
-  tlsClient.setInsecure();
-  mqtt.setServer(mqttHost, mqttPort);
+  // Kalau mau reset Wi-Fi yang tersimpan tiap kali dinyalain (buat testing),
+  // lu tinggal lepas komen di bawah ini:
+  // wifiManager.resetSettings();
+
+  // Ini bakal bikin Access Point bernama "ESP-Health-Monitor" kalo gak nemu Wi-Fi.
+  // Lu tinggal konek ke AP itu pake HP/Laptop buat setting Wi-Fi baru lewat browser.
+  if (!wifiManager.autoConnect("ESP-Health-Monitor")) {
+    Serial.println("Gagal konek dan time out");
+    delay(3000);
+    ESP.reset();
+    delay(5000);
+  }
+  // ============================================================
+  // BAGIAN WIFIMANAGER END
+  // ============================================================
+
+  Serial.println();
   Serial.println("WIFI CONNECTED");
+
+  Serial.print("IP ESP : ");
   Serial.println(WiFi.localIP());
 }
 
 void loop() {
-  reconnectMqtt();
-  mqtt.loop();
 
-  while (sensorSerial.available()) {
-    const char c = (char)sensorSerial.read();
-    if (c == '\n' || c == '\r') {
+  while (espSerial.available()) {
+
+    char c = espSerial.read();
+    if (c == '\n') {
+
+      dataMasuk.trim();
       if (dataMasuk.length() > 0) {
-        publishSensorData(dataMasuk);
-        dataMasuk = "";
+        kirimData(dataMasuk);
       }
-    } else if (dataMasuk.length() < 160) {
-      dataMasuk += c;
-    } else {
+
       dataMasuk = "";
-      Serial.println("Payload terlalu panjang; dibuang");
     }
+    else {
+      dataMasuk += c;
+    }
+  }
+}
+
+// ============================================================
+// FUNGSI KIRIM DATA — logika parsing tidak diubah
+// ============================================================
+void kirimData(String data) {
+
+  int p1 = data.indexOf(',');
+  int p2 = data.indexOf(',', p1 + 1);
+  int p3 = data.indexOf(',', p2 + 1);
+  int p4 = data.indexOf(',', p3 + 1);
+
+  if (
+      p1 == -1 ||
+      p2 == -1 ||
+      p3 == -1 ||
+      p4 == -1
+     ) {
+    Serial.println("FORMAT DATA SALAH");
+    return;
+  }
+
+  float hr =
+    data.substring(0, p1).toFloat();
+  float spo2 =
+    data.substring(p1 + 1, p2).toFloat();
+
+  float temp =
+    data.substring(p2 + 1, p3).toFloat();
+  String heartStatus =
+    data.substring(p3 + 1, p4);
+
+  String tempStatus =
+    data.substring(p4 + 1);
+
+  Serial.println();
+  Serial.println("DATA DARI ARDUINO");
+  Serial.println(data);
+
+  WiFiClientSecure client;
+  client.setInsecure();
+
+  HTTPClient http;
+
+  if (http.begin(client, server)) {
+
+    http.addHeader("Content-Type", "application/json");
+    String json = "{";
+
+    json += "\"hr\":";
+    json += String(hr, 1);
+    json += ",";
+
+    json += "\"spo2\":";
+    json += String(spo2, 1);
+    json += ",";
+
+    json += "\"temp\":";
+    json += String(temp, 1);
+    json += ",";
+    json += "\"heartStatus\":\"";
+    json += heartStatus;
+    json += "\",";
+    json += "\"tempStatus\":\"";
+    json += tempStatus;
+    json += "\"";
+
+    json += "}";
+
+    Serial.println();
+    Serial.println("JSON DIKIRIM:");
+    Serial.println(json);
+
+    int httpCode = http.POST(json);
+
+    Serial.print("HTTP CODE : ");
+    Serial.println(httpCode);
+    if (httpCode > 0) {
+
+      String payload = http.getString();
+
+      Serial.println("RESPON SERVER:");
+      Serial.println(payload);
+    }
+    else {
+
+      Serial.println("POST GAGAL");
+      Serial.println(http.errorToString(httpCode));
+    }
+
+    http.end();
+  }
+  else {
+
+    Serial.println("GAGAL KONEK KE SERVER");
   }
 }
