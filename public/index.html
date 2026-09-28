@@ -553,10 +553,6 @@ function updateMetrics(d) {
   statusEl.innerHTML = status;
   statusEl.style.color = status === 'Normal' ? 'var(--green)' : 'var(--red)';
 
-  if (status !== 'Normal') {
-    showAlert(`⚠️ Waspada! Status: ${status} | Temp: ${d.body_temp?.toFixed(1)}°C | HR: ${Math.round(d.heart_rate)} bpm`);
-  }
-
   addLog(
     `POLL -> T:${d.body_temp?.toFixed(1)}°C HR:${Math.round(d.heart_rate)}bpm SpO2:${d.spo2?.toFixed(1)}%`,
     status === 'Normal' ? '' : 'warn'
