@@ -171,9 +171,6 @@
   .stat-row:last-child { border-bottom: none; }
   .stat-row .lbl { color: var(--muted); }
   .stat-row .val { font-weight: 700; }
-  #alert-banner { display: none; align-items: center; gap: 12px; padding: 12px 18px; border-radius: 10px; background: var(--red-dim); border: 1px solid rgba(248,113,113,0.3); margin-bottom: 20px; font-size: 13px; color: var(--red); animation: slide-in 0.3s; }
-  #alert-banner.show { display: flex; }
-  #alert-banner span { flex: 1; }
   .no-signal { text-align: center; padding: 40px; color: var(--muted); font-size: 13px; font-family: 'Manrope', monospace; }
   .no-signal-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.3; }
 </style>
@@ -203,12 +200,6 @@
       <div class="time-display" id="clock">--:--:--</div>
     </div>
   </header>
-
-  <div id="alert-banner">
-    <span>⚠️</span>
-    <span id="alert-msg">Alert</span>
-    <button onclick="closeAlert()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:16px">✕</button>
-  </div>
 
   <div class="metrics-grid">
     <div class="metric-card temp">
@@ -555,14 +546,7 @@ function updateMetrics(d) {
   statusEl.innerHTML = status;
   statusEl.style.color = status === 'Normal' ? 'var(--green)' : 'var(--red)';
 
-  // d.final bisa undefined (data lama / mode lain) - anggap final supaya
-  // perilaku lama tetap sama. Alert layar penuh HANYA untuk hasil FINAL,
-  // supaya tidak muncul berulang tiap 2 detik selama pengukuran berjalan
-  // (bacaan sementara sering belum stabil / wajar terlihat "abnormal").
   const isFinal = d.final !== false;
-  if (isFinal && status !== 'Normal') {
-    showAlert(`⚠️ Waspada! Status: ${status} | Temp: ${d.body_temp?.toFixed(1)}°C | HR: ${Math.round(d.heart_rate)} bpm`);
-  }
 
   addLog(
     `${isFinal ? 'FINAL' : 'live'} -> T:${d.body_temp?.toFixed(1)}°C HR:${Math.round(d.heart_rate)}bpm SpO2:${d.spo2?.toFixed(1)}%`,
@@ -600,13 +584,6 @@ function showDeviceBadge(deviceId) {
   badge.style.display = 'flex';
   document.getElementById('device-label').textContent = deviceId;
 }
-
-function showAlert(msg) {
-  const banner = document.getElementById('alert-banner');
-  document.getElementById('alert-msg').textContent = msg;
-  banner.classList.add('show');
-}
-function closeAlert() { document.getElementById('alert-banner').classList.remove('show'); }
 
 // Jam real-time
 setInterval(() => {
