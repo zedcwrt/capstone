@@ -302,6 +302,8 @@ let chartData = {
 };
 let chartPoints = Array(MAX_POINTS).fill(null);
 let selectedChartIndex = null;
+let selectedChartMetric = null;
+let chartPointerHeld = false;
 
   function resizeCanvas() {
   canvas.width = Math.max(280, canvas.parentElement.clientWidth);
@@ -370,12 +372,18 @@ function drawChart() {
 const chartWrap = document.getElementById('chart-wrap');
 const chartTooltip = document.getElementById('chart-tooltip');
 
-function showChartTooltip(index, clientX) {
+function showChartTooltip(index, metric, clientX) {
   const point = chartPoints[index];
-  if (!point) return;
+  if (!point || !metric) return;
   selectedChartIndex = index;
+  selectedChartMetric = metric;
   const time = point.timestamp ? new Date(point.timestamp).toLocaleTimeString('id-ID') : 'Waktu tidak tersedia';
-  chartTooltip.innerHTML = `<div class="tooltip-time">${time}</div><div class="tooltip-row tooltip-temp"><span>Suhu</span><strong>${point.body_temp > 0 ? point.body_temp.toFixed(1) + ' °C' : '--'}</strong></div><div class="tooltip-row tooltip-hr"><span>Detak jantung</span><strong>${point.heart_rate > 0 ? Math.round(point.heart_rate) + ' bpm' : '--'}</strong></div><div class="tooltip-row tooltip-spo2"><span>SpO₂</span><strong>${point.spo2 > 0 ? point.spo2.toFixed(1) + '%' : '--'}</strong></div><div class="tooltip-row"><span>Status</span><strong>${point.health_status || 'Normal'}</strong></div>`;
+  const metricDetails = {
+    temp: ['Suhu', point.body_temp > 0 ? point.body_temp.toFixed(1) + ' °C' : '--', 'tooltip-temp'],
+    hr: ['Detak jantung', point.heart_rate > 0 ? Math.round(point.heart_rate) + ' bpm' : '--', 'tooltip-hr'],
+    spo2: ['SpO₂', point.spo2 > 0 ? point.spo2.toFixed(1) + '%' : '--', 'tooltip-spo2']
+  }[metric];
+  chartTooltip.innerHTML = `<div class="tooltip-time">${time}</div><div class="tooltip-row ${metricDetails[2]}"><span>${metricDetails[0]}</span><strong>${metricDetails[1]}</strong></div>`;
   const wrapRect = chartWrap.getBoundingClientRect();
   const left = Math.max(8, Math.min(chartWrap.clientWidth - 190, clientX - wrapRect.left - 90));
   chartTooltip.style.left = `${left}px`;
@@ -387,28 +395,61 @@ function showChartTooltip(index, clientX) {
 function hideChartTooltip() {
   if (selectedChartIndex === null) return;
   selectedChartIndex = null;
+  selectedChartMetric = null;
   chartTooltip.classList.remove('show');
   drawChart();
 }
 
-function chartIndexFromEvent(event) {
+function chartPointFromEvent(event) {
   const rect = canvas.getBoundingClientRect();
   const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
   const padLeft = 44;
   const padRight = 10;
+  const padTop = 10;
+  const padBottom = 30;
   const usableWidth = canvas.clientWidth - padLeft - padRight;
-  return Math.max(0, Math.min(MAX_POINTS - 1, Math.round((x - padLeft) / (usableWidth / (MAX_POINTS - 1)))));
+  const index = Math.max(0, Math.min(MAX_POINTS - 1, Math.round((x - padLeft) / (usableWidth / (MAX_POINTS - 1)))));
+  const chartHeight = canvas.clientHeight - padTop - padBottom;
+  const series = [
+    ['temp', chartData.temp[index], 30, 42],
+    ['hr', chartData.hr[index], 40, 160],
+    ['spo2', chartData.spo2[index], 80, 100]
+  ];
+  let nearest = null;
+  for (const [metric, value, min, max] of series) {
+    if (value === null) continue;
+    const pointY = padTop + chartHeight - ((value - min) / (max - min)) * chartHeight;
+    const distance = Math.abs(y - pointY);
+    if (!nearest || distance < nearest.distance) nearest = { metric, distance };
+  }
+  return nearest && nearest.distance <= 18 ? { index, metric: nearest.metric } : null;
 }
 
 canvas.addEventListener('pointermove', event => {
-  const index = chartIndexFromEvent(event);
-  if (chartPoints[index]) showChartTooltip(index, event.clientX);
+  if (!chartPointerHeld) return;
+  const target = chartPointFromEvent(event);
+  if (target && chartPoints[target.index]) showChartTooltip(target.index, target.metric, event.clientX);
+  else hideChartTooltip();
 });
 canvas.addEventListener('pointerdown', event => {
-  const index = chartIndexFromEvent(event);
-  if (chartPoints[index]) showChartTooltip(index, event.clientX);
+  chartPointerHeld = true;
+  canvas.setPointerCapture?.(event.pointerId);
+  const target = chartPointFromEvent(event);
+  if (target && chartPoints[target.index]) showChartTooltip(target.index, target.metric, event.clientX);
+  else hideChartTooltip();
 });
-canvas.addEventListener('pointerleave', hideChartTooltip);
+canvas.addEventListener('pointerup', () => {
+  chartPointerHeld = false;
+  hideChartTooltip();
+});
+canvas.addEventListener('pointercancel', () => {
+  chartPointerHeld = false;
+  hideChartTooltip();
+});
+canvas.addEventListener('pointerleave', () => {
+  if (!chartPointerHeld) hideChartTooltip();
+});
 canvas.addEventListener('keydown', event => {
   if (event.key === 'Escape') hideChartTooltip();
 });
