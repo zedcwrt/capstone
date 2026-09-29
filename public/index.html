@@ -193,10 +193,6 @@
         <div class="dot"></div>
         <span>Connecting...</span>
       </div>
-      <div class="conn-badge device-on" id="device-status" style="display:none">
-        <div class="dot"></div>
-        <span id="device-label">ESP8266_HTTP</span>
-      </div>
       <div class="time-display" id="clock">--:--:--</div>
     </div>
   </header>
@@ -476,13 +472,11 @@ async function pollLatest() {
       if (d.timestamp !== lastTimestamp) {
         lastTimestamp = d.timestamp;
         updateMetrics(d);
-        showDeviceBadge('ESP32_HTTP');
       }
     }
   } catch (err) {
     if (serverOnline) {
       setStatus(false);
-      document.getElementById('device-status').style.display = 'none';
       addLog('Server tidak bisa dijangkau: ' + err.message, 'error');
     }
   }
@@ -579,11 +573,6 @@ function updateStats(s) {
   }
 }
 
-function showDeviceBadge(deviceId) {
-  const badge = document.getElementById('device-status');
-  badge.style.display = 'flex';
-  document.getElementById('device-label').textContent = deviceId;
-}
 
 // Jam real-time
 setInterval(() => {
