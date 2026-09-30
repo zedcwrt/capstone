@@ -9,13 +9,20 @@ const HISTORY_KEY = 'cardiotemp:sensor-history';
 const LATEST_KEY = 'cardiotemp:latest';
 const MAX_HISTORY = 100;
 
-const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
-  ? Redis.fromEnv()
+const redisUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+const redis = redisUrl && redisToken
+  ? new Redis({ url: redisUrl, token: redisToken })
   : null;
 
-// Fallback hanya untuk preview lokal tanpa env Upstash.
-let memoryHistory = [];
-let memoryLatest = null;
+function requireRedis() {
+  if (!redis) {
+    const error = new Error('Konfigurasi Upstash Redis belum tersedia');
+    error.code = 'REDIS_NOT_CONFIGURED';
+    throw error;
+  }
+  return redis;
+}
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -56,13 +63,7 @@ function parseRecord(body) {
 }
 
 async function saveRecord(record) {
-  if (!redis) {
-    memoryLatest = record;
-    memoryHistory = [...memoryHistory, record].slice(-MAX_HISTORY);
-    return;
-  }
-
-  await redis.pipeline()
+  await requireRedis().pipeline()
     .set(LATEST_KEY, record)
     .lpush(HISTORY_KEY, record)
     .ltrim(HISTORY_KEY, 0, MAX_HISTORY - 1)
@@ -70,14 +71,12 @@ async function saveRecord(record) {
 }
 
 async function getHistory() {
-  if (!redis) return memoryHistory.slice(-30);
-  const records = await redis.lrange(HISTORY_KEY, 0, 29);
+  const records = await requireRedis().lrange(HISTORY_KEY, 0, 29);
   return records.reverse();
 }
 
 async function getLatest() {
-  if (!redis) return memoryLatest;
-  return redis.get(LATEST_KEY);
+  return requireRedis().get(LATEST_KEY);
 }
 
 export default async function handler(req, res) {
@@ -92,7 +91,7 @@ export default async function handler(req, res) {
 
       await saveRecord(record);
       console.log('[POST] Data sensor tersimpan:', record.timestamp);
-      return res.status(200).json({ ok: true, received: record, storage: redis ? 'upstash' : 'memory' });
+      return res.status(200).json({ ok: true, received: record, storage: 'upstash' });
     }
 
     if (req.method === 'GET') {
@@ -112,7 +111,7 @@ export default async function handler(req, res) {
         });
       }
 
-      return res.status(200).json({ data: await getLatest(), total: redis ? await redis.llen(HISTORY_KEY) : memoryHistory.length, timestamp: new Date().toISOString() });
+      return res.status(200).json({ data: await getLatest(), total: await requireRedis().llen(HISTORY_KEY), timestamp: new Date().toISOString() });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
