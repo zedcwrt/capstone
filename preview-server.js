@@ -2,9 +2,42 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
+// The preview process is started directly with Node, so load the project env file
+// before creating the Redis client. Vercel supplies these variables automatically
+// in deployed serverless functions.
+const envFiles = [
+  path.join(__dirname, '.env.development.local'),
+  '/vercel/share/.env.project',
+];
+for (const envFile of envFiles) {
+  if (!fs.existsSync(envFile)) continue;
+  for (const line of fs.readFileSync(envFile, 'utf8').split(/\r?\n/)) {
+    const match = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+    if (!match || process.env[match[1]] !== undefined) continue;
+    process.env[match[1]] = match[2].replace(/^(['\"])(.*)\1$/, '$2');
+  }
+}
+
+const { Redis } = require('@upstash/redis');
+
 const port = Number(process.env.PORT || 3000);
 const publicDir = path.join(__dirname, 'public');
-let history = [];
+const HISTORY_KEY = 'cardiotemp:sensor-history';
+const LATEST_KEY = 'cardiotemp:latest';
+const MAX_HISTORY = 100;
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN,
+});
+
+function validateRedisConfig() {
+  if (!process.env.UPSTASH_REDIS_REST_URL && !process.env.KV_REST_API_URL) {
+    throw new Error('UPSTASH_REDIS_REST_URL atau KV_REST_API_URL belum tersedia');
+  }
+  if (!process.env.UPSTASH_REDIS_REST_TOKEN && !process.env.KV_REST_API_TOKEN) {
+    throw new Error('UPSTASH_REDIS_REST_TOKEN atau KV_REST_API_TOKEN belum tersedia');
+  }
+}
 
 function json(res, status, body) {
   res.writeHead(status, {
@@ -25,53 +58,68 @@ function stats(values) {
   };
 }
 
-function handleInput(req, res) {
+async function handleInput(req, res) {
   if (req.method === 'OPTIONS') return json(res, 200, {});
 
-  if (req.method === 'POST') {
-    let raw = '';
-    req.on('data', (chunk) => { raw += chunk; });
-    req.on('end', () => {
-      try {
-        const body = JSON.parse(raw || '{}');
-        const required = ['hr', 'spo2', 'temp', 'heartStatus', 'tempStatus'];
-        if (required.some((key) => body[key] === undefined)) {
-          return json(res, 400, { error: 'Field tidak lengkap' });
-        }
-        const record = {
-          heart_rate: Number(body.hr),
-          spo2: Number(body.spo2),
-          body_temp: Number(body.temp),
-          heartStatus: String(body.heartStatus),
-          tempStatus: String(body.tempStatus),
-          health_status: body.heartStatus === 'Normal' && body.tempStatus === 'Normal'
-            ? 'Normal' : `${body.heartStatus} / ${body.tempStatus}`,
-          timestamp: new Date().toISOString(),
-        };
-        history.push(record);
-        history = history.slice(-100);
-        return json(res, 200, { ok: true, received: record });
-      } catch {
-        return json(res, 400, { error: 'JSON tidak valid' });
-      }
-    });
-    return;
-  }
+  try {
+    validateRedisConfig();
 
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const latest = history.at(-1) || null;
-  if (url.searchParams.get('mode') === 'history') return json(res, 200, { history: history.slice(-30) });
-  if (url.searchParams.get('mode') === 'stats') {
-    return json(res, 200, {
-      stats: {
-        temp: stats(history.map((item) => item.body_temp)),
-        hr: stats(history.map((item) => item.heart_rate)),
-        spo2: stats(history.map((item) => item.spo2)),
-      },
-      total: history.length,
-    });
+    if (req.method === 'POST') {
+      let raw = '';
+      req.on('data', (chunk) => { raw += chunk; });
+      req.on('end', async () => {
+        try {
+          const body = JSON.parse(raw || '{}');
+          const required = ['hr', 'spo2', 'temp', 'heartStatus', 'tempStatus'];
+          if (required.some((key) => body[key] === undefined)) {
+            return json(res, 400, { error: 'Field tidak lengkap' });
+          }
+          const record = {
+            heart_rate: Number(body.hr),
+            spo2: Number(body.spo2),
+            body_temp: Number(body.temp),
+            heartStatus: String(body.heartStatus),
+            tempStatus: String(body.tempStatus),
+            health_status: body.heartStatus === 'Normal' && body.tempStatus === 'Normal'
+              ? 'Normal' : `${body.heartStatus} / ${body.tempStatus}`,
+            timestamp: new Date().toISOString(),
+          };
+          if (![record.heart_rate, record.spo2, record.body_temp].every(Number.isFinite)) {
+            return json(res, 400, { error: 'Nilai sensor tidak valid' });
+          }
+          await redis.pipeline()
+            .set(LATEST_KEY, record)
+            .lpush(HISTORY_KEY, record)
+            .ltrim(HISTORY_KEY, 0, MAX_HISTORY - 1)
+            .exec();
+          return json(res, 200, { ok: true, received: record, storage: 'upstash' });
+        } catch (error) {
+          console.error('[v0] Sensor input error:', error.message);
+          return json(res, 503, { error: 'Penyimpanan data sedang tidak tersedia' });
+        }
+      });
+      return;
+    }
+
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const history = (await redis.lrange(HISTORY_KEY, 0, 29)).reverse();
+    const latest = await redis.get(LATEST_KEY);
+    if (url.searchParams.get('mode') === 'history') return json(res, 200, { history });
+    if (url.searchParams.get('mode') === 'stats') {
+      return json(res, 200, {
+        stats: {
+          temp: stats(history.map((item) => item.body_temp).filter(Number.isFinite)),
+          hr: stats(history.map((item) => item.heart_rate).filter(Number.isFinite)),
+          spo2: stats(history.map((item) => item.spo2).filter(Number.isFinite)),
+        },
+        total: history.length,
+      });
+    }
+    return json(res, 200, { data: latest, total: await redis.llen(HISTORY_KEY), timestamp: new Date().toISOString() });
+  } catch (error) {
+    console.error('[v0] Redis unavailable:', error.message);
+    return json(res, 503, { error: 'Penyimpanan data sedang tidak tersedia' });
   }
-  return json(res, 200, { data: latest, total: history.length, timestamp: new Date().toISOString() });
 }
 
 const server = http.createServer((req, res) => {

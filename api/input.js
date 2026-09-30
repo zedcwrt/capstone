@@ -1,104 +1,122 @@
 // =============================================================
-// api/input.js  —  Vercel Serverless Function
-// Menerima HTTP POST dari ESP8266 & melayani GET polling dashboard
+// api/input.js — Vercel Serverless Function
+// Menerima data sensor ESP8266 dan menyimpannya ke Upstash Redis.
 // =============================================================
 
-// Penyimpanan data sementara (in-memory, reset setiap cold-start)
-// Untuk persistensi nyata, ganti dengan Vercel KV / PlanetScale / Supabase
-let history = [];        // maks 100 data terakhir
-let lastData = null;     // data terbaru
+import { Redis } from '@upstash/redis';
 
+const HISTORY_KEY = 'cardiotemp:sensor-history';
+const LATEST_KEY = 'cardiotemp:latest';
 const MAX_HISTORY = 100;
 
-// Helper CORS agar dashboard di domain Vercel bisa fetch
+const redisUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+const redis = redisUrl && redisToken
+  ? new Redis({ url: redisUrl, token: redisToken })
+  : null;
+
+function requireRedis() {
+  if (!redis) {
+    const error = new Error('Konfigurasi Upstash Redis belum tersedia');
+    error.code = 'REDIS_NOT_CONFIGURED';
+    throw error;
+  }
+  return redis;
+}
+
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
-// Hitung statistik min/max/avg dari array angka
-function calcStats(arr) {
-  if (!arr.length) return { min: null, max: null, avg: null };
-  const min  = Math.min(...arr).toFixed(1);
-  const max  = Math.max(...arr).toFixed(1);
-  const avg  = (arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1);
+function calcStats(values) {
+  if (!values.length) return { min: null, max: null, avg: null };
+  const min = Math.min(...values).toFixed(1);
+  const max = Math.max(...values).toFixed(1);
+  const avg = (values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1);
   return { min, max, avg };
 }
 
-export default function handler(req, res) {
+function parseRecord(body) {
+  if (!body || body.hr === undefined || body.spo2 === undefined || body.temp === undefined ||
+      body.heartStatus === undefined || body.tempStatus === undefined) {
+    return null;
+  }
+
+  const heartRate = Number.parseFloat(body.hr);
+  const spo2 = Number.parseFloat(body.spo2);
+  const bodyTemp = Number.parseFloat(body.temp);
+  if (![heartRate, spo2, bodyTemp].every(Number.isFinite)) return null;
+
+  return {
+    heart_rate: heartRate,
+    spo2,
+    body_temp: bodyTemp,
+    heartStatus: String(body.heartStatus),
+    tempStatus: String(body.tempStatus),
+    health_status: body.heartStatus === 'Normal' && body.tempStatus === 'Normal'
+      ? 'Normal'
+      : `${body.heartStatus} / ${body.tempStatus}`,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+async function saveRecord(record) {
+  await requireRedis().pipeline()
+    .set(LATEST_KEY, record)
+    .lpush(HISTORY_KEY, record)
+    .ltrim(HISTORY_KEY, 0, MAX_HISTORY - 1)
+    .exec();
+}
+
+async function getHistory() {
+  const records = await requireRedis().lrange(HISTORY_KEY, 0, 29);
+  return records.reverse();
+}
+
+async function getLatest() {
+  return requireRedis().get(LATEST_KEY);
+}
+
+export default async function handler(req, res) {
   cors(res);
 
-  // Preflight OPTIONS (CORS)
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
 
-  // ── POST: ESP8266 mengirim data sensor ──────────────────────
-  if (req.method === 'POST') {
-    const body = req.body;
+  try {
+    if (req.method === 'POST') {
+      const record = parseRecord(req.body);
+      if (!record) return res.status(400).json({ error: 'Field tidak lengkap atau angka sensor tidak valid' });
 
-    // Validasi field wajib
-    if (
-      body.hr        === undefined ||
-      body.spo2      === undefined ||
-      body.temp      === undefined ||
-      body.heartStatus === undefined ||
-      body.tempStatus  === undefined
-    ) {
-      return res.status(400).json({ error: 'Field tidak lengkap' });
+      await saveRecord(record);
+      console.log('[POST] Data sensor tersimpan:', record.timestamp);
+      return res.status(200).json({ ok: true, received: record, storage: 'upstash' });
     }
 
-    const record = {
-      heart_rate:   parseFloat(body.hr),
-      spo2:         parseFloat(body.spo2),
-      body_temp:    parseFloat(body.temp),
-      heartStatus:  body.heartStatus,
-      tempStatus:   body.tempStatus,
-      health_status: body.heartStatus === 'Normal' && body.tempStatus === 'Normal'
-                      ? 'Normal'
-                      : `${body.heartStatus} / ${body.tempStatus}`,
-      timestamp:    new Date().toISOString(),
-    };
+    if (req.method === 'GET') {
+      const mode = req.query?.mode || 'latest';
 
-    lastData = record;
-    history.push(record);
-    if (history.length > MAX_HISTORY) history.shift();
+      if (mode === 'history') return res.status(200).json({ history: await getHistory() });
 
-    console.log('[POST] Data diterima:', record);
-    return res.status(200).json({ ok: true, received: record });
-  }
+      if (mode === 'stats') {
+        const history = await getHistory();
+        return res.status(200).json({
+          stats: {
+            temp: calcStats(history.map((item) => item.body_temp).filter(Number.isFinite)),
+            hr: calcStats(history.map((item) => item.heart_rate).filter(Number.isFinite)),
+            spo2: calcStats(history.map((item) => item.spo2).filter(Number.isFinite)),
+          },
+          total: history.length,
+        });
+      }
 
-  // ── GET: Dashboard polling data terbaru ─────────────────────
-  if (req.method === 'GET') {
-    const mode = req.query.mode || 'latest';
-
-    if (mode === 'history') {
-      // Kirim 30 data terakhir untuk chart
-      return res.status(200).json({ history: history.slice(-30) });
+      return res.status(200).json({ data: await getLatest(), total: await requireRedis().llen(HISTORY_KEY), timestamp: new Date().toISOString() });
     }
 
-    if (mode === 'stats') {
-      const temps = history.map(d => d.body_temp).filter(Boolean);
-      const hrs   = history.map(d => d.heart_rate).filter(Boolean);
-      const spo2s = history.map(d => d.spo2).filter(Boolean);
-      return res.status(200).json({
-        stats: {
-          temp: calcStats(temps),
-          hr:   calcStats(hrs),
-          spo2: calcStats(spo2s),
-        },
-        total: history.length,
-      });
-    }
-
-    // Default: data terbaru saja
-    return res.status(200).json({
-      data:      lastData,
-      total:     history.length,
-      timestamp: new Date().toISOString(),
-    });
+    return res.status(405).json({ error: 'Method not allowed' });
+  } catch (error) {
+    console.error('[MQTT/API] Redis error:', error);
+    return res.status(503).json({ error: 'Penyimpanan data sedang tidak tersedia' });
   }
-
-  return res.status(405).json({ error: 'Method not allowed' });
 }
