@@ -336,18 +336,20 @@ function drawChart() {
 
   function drawLine(arr, color, minVal, maxVal) {
     const valid = arr.filter(v => v !== null);
-    if (valid.length < 2) return;
+    if (valid.length === 0) return;
 
-    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    let started = false;
-    arr.forEach((v, i) => {
-      if (v === null) { started = false; return; }
-      const x = PAD.left + (CW / (MAX_POINTS - 1)) * i;
-      const y = PAD.top + CH - ((v - minVal) / (maxVal - minVal)) * CH;
-      if (!started) { ctx.moveTo(x, y); started = true; }
-      else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
+    if (valid.length >= 2) {
+      ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      let started = false;
+      arr.forEach((v, i) => {
+        if (v === null) { started = false; return; }
+        const x = PAD.left + (CW / (MAX_POINTS - 1)) * i;
+        const y = PAD.top + CH - ((v - minVal) / (maxVal - minVal)) * CH;
+        if (!started) { ctx.moveTo(x, y); started = true; }
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
 
     const lastIdx = arr.length - 1;
     if (arr[lastIdx] !== null) {
