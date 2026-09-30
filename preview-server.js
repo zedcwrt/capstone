@@ -1,6 +1,23 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+
+// The preview process is started directly with Node, so load the project env file
+// before creating the Redis client. Vercel supplies these variables automatically
+// in deployed serverless functions.
+const envFiles = [
+  path.join(__dirname, '.env.development.local'),
+  '/vercel/share/.env.project',
+];
+for (const envFile of envFiles) {
+  if (!fs.existsSync(envFile)) continue;
+  for (const line of fs.readFileSync(envFile, 'utf8').split(/\r?\n/)) {
+    const match = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+    if (!match || process.env[match[1]] !== undefined) continue;
+    process.env[match[1]] = match[2].replace(/^(['\"])(.*)\1$/, '$2');
+  }
+}
+
 const { Redis } = require('@upstash/redis');
 
 const port = Number(process.env.PORT || 3000);
