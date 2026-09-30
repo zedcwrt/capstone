@@ -283,10 +283,8 @@
 // ============================================================
 const API_BASE = window.location.origin;
 
-// Interval polling dalam milidetik. Dipercepat ke 1.5 detik supaya lebih
-// sering menangkap data "live" yang dikirim ESP32 tiap 2 detik selama
-// pengukuran, sehingga grafik terlihat bergerak, bukan cuma 1 titik.
-const POLL_INTERVAL = 1500;
+// Interval polling dalam milidetik (default 3 detik)
+const POLL_INTERVAL = 3000;
 
 // ============================================================
 // CANVAS CHART
@@ -581,11 +579,9 @@ function updateMetrics(d) {
   statusEl.innerHTML = status;
   statusEl.style.color = status === 'Normal' ? 'var(--green)' : 'var(--red)';
 
-  const isFinal = d.final !== false;
-
   addLog(
-    `${isFinal ? 'FINAL' : 'live'} -> T:${d.body_temp?.toFixed(1)}°C HR:${Math.round(d.heart_rate)}bpm SpO2:${d.spo2?.toFixed(1)}%`,
-    !isFinal ? '' : (status === 'Normal' ? 'ok' : 'warn')
+    `T:${d.body_temp?.toFixed(1)}°C HR:${Math.round(d.heart_rate)}bpm SpO2:${d.spo2?.toFixed(1)}%`,
+    status === 'Normal' ? 'ok' : 'warn'
   );
   pushChartData(d);
 }
