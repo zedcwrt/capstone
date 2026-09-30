@@ -476,8 +476,9 @@ function addLog(msg, type = '') {
 // POLLING HTTP
 // ============================================================
 let dataCount = 0;
-let lastTimestamp = null;
-let serverOnline = false;
+  let lastTimestamp = null;
+  let hasInitializedData = false;
+  let serverOnline = false;
 let statsInterval = null;
 
 function setStatus(online) {
@@ -501,13 +502,14 @@ async function pollLatest() {
     if (!serverOnline) {
       setStatus(true);
       addLog('Server Vercel terhubung ✓', 'ok');
-      // Muat history chart saat pertama konek
-      pollHistory();
+      // Sinkronkan cursor dengan history agar data lama tidak dihitung sebagai input baru.
+      await pollHistory(json.data);
+      hasInitializedData = true;
     }
 
-    if (json.data) {
+    if (json.data && hasInitializedData) {
       const d = json.data;
-      // Hanya update jika data baru (cek timestamp)
+      // Hanya data yang timestamp-nya lebih baru dari cursor yang diproses.
       if (d.timestamp !== lastTimestamp) {
         lastTimestamp = d.timestamp;
         updateMetrics(d);
@@ -521,15 +523,21 @@ async function pollLatest() {
   }
 }
 
-async function pollHistory() {
+async function pollHistory(latest = null) {
   try {
     const res = await fetch(`${API_BASE}/input?mode=history`);
     const json = await res.json();
     if (json.history && json.history.length > 0) {
       addLog(`History: ${json.history.length} data dimuat`, 'ok');
       json.history.slice(-MAX_POINTS).forEach(d => pushChartData(d));
+      // History sudah ditampilkan; jadikan data terakhir sebagai cursor awal.
+      lastTimestamp = (latest || json.history.at(-1)).timestamp;
+    } else if (latest) {
+      lastTimestamp = latest.timestamp;
     }
-  } catch (_) {}
+  } catch (_) {
+    if (latest) lastTimestamp = latest.timestamp;
+  }
 }
 
 async function pollStats() {
