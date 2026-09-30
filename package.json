@@ -6,5 +6,8 @@
   "scripts": {
     "dev": "node preview-server.js",
     "start": "node preview-server.js"
+  },
+  "dependencies": {
+    "@upstash/redis": "^1.39.0"
   }
 }
