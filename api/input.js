@@ -26,7 +26,7 @@ function requireRedis() {
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
@@ -92,6 +92,15 @@ export default async function handler(req, res) {
       await saveRecord(record);
       console.log('[POST] Data sensor tersimpan:', record.timestamp);
       return res.status(200).json({ ok: true, received: record, storage: 'upstash' });
+    }
+
+    if (req.method === 'DELETE') {
+      await requireRedis().pipeline()
+        .del(HISTORY_KEY)
+        .del(LATEST_KEY)
+        .exec();
+      console.log('[DELETE] Data sensor dihapus dari Redis');
+      return res.status(200).json({ ok: true, storage: 'upstash', deleted: true });
     }
 
     if (req.method === 'GET') {
