@@ -115,8 +115,10 @@
   .tooltip-spo2 { color: var(--blue); }
   .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
   .card-actions { display: flex; align-items: center; gap: 10px; }
-  .export-button { border: 1px solid rgba(34,211,160,0.3); border-radius: 7px; padding: 7px 10px; background: var(--green-dim); color: var(--green); font: 10px 'Manrope', sans-serif; cursor: pointer; transition: background 0.2s, border-color 0.2s; }
-  .export-button:hover, .export-button:focus-visible { background: rgba(34,211,160,0.2); border-color: var(--green); outline: none; }
+  .export-button, .reset-button { border: 1px solid rgba(34,211,160,0.3); border-radius: 7px; padding: 7px 10px; background: var(--green-dim); color: var(--green); font: 10px 'Manrope', sans-serif; cursor: pointer; transition: background 0.2s, border-color 0.2s; }
+  .export-button:hover, .export-button:focus-visible, .reset-button:hover, .reset-button:focus-visible { background: rgba(34,211,160,0.2); border-color: var(--green); outline: none; }
+  .reset-button { color: var(--muted); border-color: var(--border); background: transparent; }
+  .reset-button:hover, .reset-button:focus-visible { color: var(--text); border-color: rgba(255,255,255,0.25); background: var(--surface2); }
   .export-button:disabled { cursor: wait; opacity: 0.6; }
   .card-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); font-weight: 500; }
   .legend { display: flex; gap: 12px; }
@@ -234,6 +236,7 @@
         <div class="card-title">Riwayat Real-time (30 data terakhir)</div>
         <div class="card-actions">
           <button class="export-button" id="export-csv" type="button">Unduh CSV</button>
+          <button class="reset-button" id="reset-chart" type="button">Reset Grafik</button>
           <div class="legend">
           <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div>Suhu</div>
           <div class="legend-item"><div class="legend-dot" style="background:var(--pulse)"></div>HR</div>
@@ -665,6 +668,21 @@ async function exportSensorData() {
 }
 
 document.getElementById('export-csv').addEventListener('click', exportSensorData);
+
+document.getElementById('reset-chart').addEventListener('click', () => {
+  chartData = {
+    temp: Array(MAX_POINTS).fill(null),
+    hr: Array(MAX_POINTS).fill(null),
+    spo2: Array(MAX_POINTS).fill(null),
+  };
+  chartPoints = Array(MAX_POINTS).fill(null);
+  selectedChartIndex = null;
+  selectedChartMetric = null;
+  chartPointerHeld = false;
+  chartTooltip.classList.remove('show');
+  drawChart();
+  addLog('Grafik berhasil direset', 'ok');
+});
 
 function updateStats(s) {
   if (s.temp) {
