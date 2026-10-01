@@ -114,6 +114,10 @@
   .tooltip-hr { color: var(--pulse); }
   .tooltip-spo2 { color: var(--blue); }
   .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .card-actions { display: flex; align-items: center; gap: 10px; }
+  .export-button { border: 1px solid rgba(34,211,160,0.3); border-radius: 7px; padding: 7px 10px; background: var(--green-dim); color: var(--green); font: 10px 'Manrope', sans-serif; cursor: pointer; transition: background 0.2s, border-color 0.2s; }
+  .export-button:hover, .export-button:focus-visible { background: rgba(34,211,160,0.2); border-color: var(--green); outline: none; }
+  .export-button:disabled { cursor: wait; opacity: 0.6; }
   .card-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); font-weight: 500; }
   .legend { display: flex; gap: 12px; }
   .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); font-family: 'Manrope', monospace; }
@@ -228,10 +232,13 @@
     <div class="chart-card">
       <div class="card-header">
         <div class="card-title">Riwayat Real-time (30 data terakhir)</div>
-        <div class="legend">
+        <div class="card-actions">
+          <button class="export-button" id="export-csv" type="button">Unduh CSV</button>
+          <div class="legend">
           <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div>Suhu</div>
           <div class="legend-item"><div class="legend-dot" style="background:var(--pulse)"></div>HR</div>
           <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>SpO₂</div>
+          </div>
         </div>
       </div>
       <div class="chart-hint">Klik atau tahan titik grafik untuk melihat detail data</div>
@@ -601,6 +608,63 @@ function flashUpdate(id, html) {
   el.innerHTML = html; el.classList.remove('flash');
   void el.offsetWidth; el.classList.add('flash');
 }
+
+function csvCell(value) {
+  return `"${String(value ?? '').replaceAll('"', '""')}"`;
+}
+
+function formatExportFilename() {
+  const now = new Date();
+  const pad = value => String(value).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}.csv`;
+}
+
+async function exportSensorData() {
+  const button = document.getElementById('export-csv');
+  const originalLabel = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Menyiapkan...';
+
+  try {
+    const res = await fetch(`${API_BASE}/input?mode=export`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    const rows = json.history || [];
+    if (!rows.length) {
+      addLog('Belum ada data untuk diekspor', 'warn');
+      return;
+    }
+
+    const headers = ['Waktu', 'Suhu (°C)', 'Detak Jantung (bpm)', 'SpO₂ (%)', 'Status Jantung', 'Status Suhu', 'Status Kesehatan'];
+    const csv = [headers, ...rows.map(item => [
+      item.timestamp ? new Date(item.timestamp).toLocaleString('id-ID') : '',
+      item.body_temp,
+      item.heart_rate,
+      item.spo2,
+      item.heartStatus,
+      item.tempStatus,
+      item.health_status,
+    ])].map(row => row.map(csvCell).join(',')).join('\r\n');
+
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = formatExportFilename();
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    addLog(`${rows.length} data berhasil diekspor ke CSV`, 'ok');
+  } catch (error) {
+    addLog(`Export CSV gagal: ${error.message}`, 'error');
+  } finally {
+    button.disabled = false;
+    button.textContent = originalLabel;
+  }
+}
+
+document.getElementById('export-csv').addEventListener('click', exportSensorData);
 
 function updateStats(s) {
   if (s.temp) {

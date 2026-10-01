@@ -70,8 +70,8 @@ async function saveRecord(record) {
     .exec();
 }
 
-async function getHistory() {
-  const records = await requireRedis().lrange(HISTORY_KEY, 0, 29);
+async function getHistory(limit = 30) {
+  const records = await requireRedis().lrange(HISTORY_KEY, 0, limit - 1);
   return records.reverse();
 }
 
@@ -98,6 +98,8 @@ export default async function handler(req, res) {
       const mode = req.query?.mode || 'latest';
 
       if (mode === 'history') return res.status(200).json({ history: await getHistory() });
+
+      if (mode === 'export') return res.status(200).json({ history: await getHistory(MAX_HISTORY) });
 
       if (mode === 'stats') {
         const history = await getHistory();
