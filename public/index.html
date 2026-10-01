@@ -641,7 +641,7 @@ async function exportSensorData() {
 
     const headers = ['Waktu', 'Suhu (°C)', 'Detak Jantung (bpm)', 'SpO₂ (%)', 'Status Jantung', 'Status Suhu', 'Status Kesehatan'];
     const csv = [headers, ...rows.map(item => [
-      item.timestamp ? new Date(item.timestamp).toLocaleString('id-ID') : '',
+      item.timestamp ? new Date(item.timestamp).toLocaleString('id-ID', {\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit',\n    hour: '2-digit',\n    minute: '2-digit',\n    second: '2-digit',\n    hour12: false\n  }) : '',
       item.body_temp,
       item.heart_rate,
       item.spo2,
