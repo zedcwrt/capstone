@@ -670,8 +670,18 @@ async function exportSensorData() {
 
 document.getElementById('export-csv').addEventListener('click', exportSensorData);
 
-document.getElementById('reset-chart').addEventListener('click', () => {
-  chartData = {
+document.getElementById('reset-chart').addEventListener('click', async (event) => {
+  const button = event.currentTarget;
+  const originalLabel = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Menghapus...';
+
+  try {
+    const response = await fetch('/api/input', { method: 'DELETE' });
+    const result = await response.json();
+    if (!response.ok || !result.deleted) throw new Error(result.error || 'Data Redis gagal dihapus');
+
+    chartData = {
     temp: Array(MAX_POINTS).fill(null),
     hr: Array(MAX_POINTS).fill(null),
     spo2: Array(MAX_POINTS).fill(null),
@@ -681,8 +691,14 @@ document.getElementById('reset-chart').addEventListener('click', () => {
   selectedChartMetric = null;
   chartPointerHeld = false;
   chartTooltip.classList.remove('show');
-  drawChart();
-  addLog('Grafik berhasil direset', 'ok');
+    drawChart();
+    addLog('Grafik dan data tersimpan berhasil dihapus', 'ok');
+  } catch (error) {
+    addLog(`Reset gagal: ${error.message}`, 'error');
+  } finally {
+    button.disabled = false;
+    button.textContent = originalLabel;
+  }
 });
 
 function updateStats(s) {

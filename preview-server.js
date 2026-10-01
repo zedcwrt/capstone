@@ -43,7 +43,7 @@ function json(res, status, body) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
   });
   res.end(JSON.stringify(body));
@@ -63,6 +63,12 @@ async function handleInput(req, res) {
 
   try {
     validateRedisConfig();
+
+    if (req.method === 'DELETE') {
+      await redis.pipeline().del(HISTORY_KEY).del(LATEST_KEY).exec();
+      console.log('[v0] Sensor data deleted from Redis');
+      return json(res, 200, { ok: true, storage: 'upstash', deleted: true });
+    }
 
     if (req.method === 'POST') {
       let raw = '';
@@ -123,7 +129,7 @@ async function handleInput(req, res) {
 }
 
 const server = http.createServer((req, res) => {
-  if (req.url.startsWith('/input')) return handleInput(req, res);
+  if (req.url.startsWith('/input') || req.url.startsWith('/api/input')) return handleInput(req, res);
 
   const requested = decodeURIComponent(new URL(req.url, `http://${req.headers.host}`).pathname);
   const filePath = path.normalize(path.join(publicDir, requested === '/' ? 'index.html' : requested));
