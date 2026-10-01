@@ -242,7 +242,7 @@
           </div>
         </div>
       </div>
-      <div class="chart-hint">Klik atau tahan titik grafik untuk melihat detail data</div>
+      <div class="chart-hint">Desktop: arahkan kursor ke titik grafik · HP: klik atau tahan titik untuk melihat detail</div>
       <div class="chart-wrap" id="chart-wrap">
         <canvas id="chart" height="220" aria-label="Grafik data kesehatan realtime"></canvas>
         <div class="chart-tooltip" id="chart-tooltip" role="status" aria-live="polite"></div>
@@ -435,28 +435,31 @@ function chartPointFromEvent(event) {
 }
 
 canvas.addEventListener('pointermove', event => {
-  if (!chartPointerHeld) return;
+  // Desktop memakai hover biasa, sedangkan perangkat sentuh tetap memakai tahan.
+  if (event.pointerType !== 'mouse' && !chartPointerHeld) return;
   const target = chartPointFromEvent(event);
   if (target && chartPoints[target.index]) showChartTooltip(target.index, target.metric, event.clientX);
   else hideChartTooltip();
 });
 canvas.addEventListener('pointerdown', event => {
-  chartPointerHeld = true;
-  canvas.setPointerCapture?.(event.pointerId);
+  chartPointerHeld = event.pointerType !== 'mouse';
+  if (chartPointerHeld) canvas.setPointerCapture?.(event.pointerId);
   const target = chartPointFromEvent(event);
   if (target && chartPoints[target.index]) showChartTooltip(target.index, target.metric, event.clientX);
   else hideChartTooltip();
 });
-canvas.addEventListener('pointerup', () => {
-  chartPointerHeld = false;
-  hideChartTooltip();
+canvas.addEventListener('pointerup', event => {
+  if (event.pointerType !== 'mouse') {
+    chartPointerHeld = false;
+    hideChartTooltip();
+  }
 });
 canvas.addEventListener('pointercancel', () => {
   chartPointerHeld = false;
   hideChartTooltip();
 });
-canvas.addEventListener('pointerleave', () => {
-  if (!chartPointerHeld) hideChartTooltip();
+canvas.addEventListener('pointerleave', event => {
+  if (event.pointerType === 'mouse' || !chartPointerHeld) hideChartTooltip();
 });
 canvas.addEventListener('keydown', event => {
   if (event.key === 'Escape') hideChartTooltip();
