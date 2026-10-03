@@ -328,16 +328,6 @@ function drawChart() {
   const CH = H - PAD.top - PAD.bottom;
 
   const yForValue = value => PAD.top + CH - (value / 150) * CH;
-  const drawHighlight = (min, max, color) => {
-    const top = yForValue(max);
-    const bottom = yForValue(min);
-    ctx.fillStyle = color;
-    ctx.fillRect(PAD.left, top, CW, bottom - top);
-  };
-
-  drawHighlight(95, 100, 'rgba(96,165,250,0.12)');
-  drawHighlight(60, 100, 'rgba(255,77,109,0.10)');
-  drawHighlight(35, 37, 'rgba(251,191,36,0.14)');
 
   ctx.strokeStyle = 'rgba(255,255,255,0.05)';
   ctx.lineWidth = 1;
@@ -381,8 +371,19 @@ function drawChart() {
     }
   }
 
-  ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '9px Space Mono, monospace'; ctx.textAlign = 'right';
-  ctx.fillText('150', PAD.left - 4, PAD.top + 6); ctx.fillText('0', PAD.left - 4, PAD.top + CH);
+  const axisLabels = [
+    { value: 100, text: '100', color: '#60a5fa' },
+    { value: 95, text: '95', color: '#60a5fa' },
+    { value: 60, text: '60', color: '#ff4d6d' },
+    { value: 35, text: '35', color: '#fbbf24' },
+    { value: 37, text: '37', color: '#fbbf24' },
+  ];
+  ctx.font = '9px Space Mono, monospace';
+  ctx.textAlign = 'right';
+  axisLabels.forEach(({ value, text, color }) => {
+    ctx.fillStyle = color;
+    ctx.fillText(text, PAD.left - 6, yForValue(value) + 3);
+  });
 
   drawLine(chartData.temp, '#fbbf24', 0, 150);
   drawLine(chartData.hr,   '#ff4d6d', 0, 150);
