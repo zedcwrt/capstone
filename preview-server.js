@@ -65,8 +65,19 @@ async function handleInput(req, res) {
     validateRedisConfig();
 
     if (req.method === 'DELETE') {
-      await redis.pipeline().del(HISTORY_KEY).del(LATEST_KEY).exec();
-      console.log('[v0] Sensor data deleted from Redis');
+      await Promise.all([
+        redis.del(HISTORY_KEY),
+        redis.del(LATEST_KEY),
+      ]);
+
+      const [remainingHistory, remainingLatest] = await Promise.all([
+        redis.llen(HISTORY_KEY),
+        redis.get(LATEST_KEY),
+      ]);
+      const deleted = remainingHistory === 0 && remainingLatest === null;
+      if (!deleted) throw new Error('Redis masih berisi data sensor setelah reset');
+
+      console.log('[v0] Sensor data permanently deleted from Redis');
       return json(res, 200, { ok: true, storage: 'upstash', deleted: true });
     }
 

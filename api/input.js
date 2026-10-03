@@ -95,11 +95,20 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'DELETE') {
-      await requireRedis().pipeline()
-        .del(HISTORY_KEY)
-        .del(LATEST_KEY)
-        .exec();
-      console.log('[DELETE] Data sensor dihapus dari Redis');
+      const store = requireRedis();
+      await Promise.all([
+        store.del(HISTORY_KEY),
+        store.del(LATEST_KEY),
+      ]);
+
+      const [remainingHistory, remainingLatest] = await Promise.all([
+        store.llen(HISTORY_KEY),
+        store.get(LATEST_KEY),
+      ]);
+      const deleted = remainingHistory === 0 && remainingLatest === null;
+      if (!deleted) throw new Error('Redis masih berisi data sensor setelah reset');
+
+      console.log('[DELETE] Data sensor dihapus permanen dari Redis');
       return res.status(200).json({ ok: true, storage: 'upstash', deleted: true });
     }
 
