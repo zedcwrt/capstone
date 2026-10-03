@@ -370,11 +370,11 @@ function drawChart() {
   }
 
   ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '9px Space Mono, monospace'; ctx.textAlign = 'right';
-  ctx.fillText('100', PAD.left - 4, PAD.top + 6); ctx.fillText('0', PAD.left - 4, PAD.top + CH);
+  ctx.fillText('150', PAD.left - 4, PAD.top + 6); ctx.fillText('0', PAD.left - 4, PAD.top + CH);
 
-  drawLine(chartData.temp, '#fbbf24', 30, 42);
-  drawLine(chartData.hr,   '#ff4d6d', 40, 160);
-  drawLine(chartData.spo2, '#60a5fa', 80, 100);
+  drawLine(chartData.temp, '#fbbf24', 0, 150);
+  drawLine(chartData.hr,   '#ff4d6d', 0, 150);
+  drawLine(chartData.spo2, '#60a5fa', 0, 150);
 }
 
 const chartWrap = document.getElementById('chart-wrap');
