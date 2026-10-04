@@ -426,24 +426,29 @@ function hideChartTooltip() {
 
 function chartPointFromEvent(event) {
   const rect = canvas.getBoundingClientRect();
-  const x = event.clientX - rect.left;
-  const y = event.clientY - rect.top;
-  const padLeft = 44;
+  // Convert pointer coordinates back to the canvas coordinate system so hover
+  // remains accurate when the responsive canvas is displayed at a different CSS width.
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const x = (event.clientX - rect.left) * scaleX;
+  const y = (event.clientY - rect.top) * scaleY;
+  const padLeft = 64;
   const padRight = 10;
-  const padTop = 10;
-  const padBottom = 30;
-  const usableWidth = canvas.clientWidth - padLeft - padRight;
+  const padTop = 14;
+  const padBottom = 34;
+  const usableWidth = canvas.width - padLeft - padRight;
   const index = Math.max(0, Math.min(MAX_POINTS - 1, Math.round((x - padLeft) / (usableWidth / (MAX_POINTS - 1)))));
-  const chartHeight = canvas.clientHeight - padTop - padBottom;
+  const chartHeight = canvas.height - padTop - padBottom;
   const series = [
-    ['temp', chartData.temp[index], 30, 42],
-    ['hr', chartData.hr[index], 40, 160],
-    ['spo2', chartData.spo2[index], 80, 100]
+    ['temp', chartData.temp[index]],
+    ['hr', chartData.hr[index]],
+    ['spo2', chartData.spo2[index]]
   ];
   let nearest = null;
-  for (const [metric, value, min, max] of series) {
+  for (const [metric, value] of series) {
     if (value === null) continue;
-    const pointY = padTop + chartHeight - ((value - min) / (max - min)) * chartHeight;
+    // All three series use the same visible 0–150 Y scale in drawChart().
+    const pointY = padTop + chartHeight - (Number(value) / 150) * chartHeight;
     const distance = Math.abs(y - pointY);
     if (!nearest || distance < nearest.distance) nearest = { metric, distance };
   }
