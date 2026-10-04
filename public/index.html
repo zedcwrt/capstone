@@ -379,18 +379,6 @@ function drawChart() {
     ctx.fillText(String(value), PAD.left - 34, yForValue(value) + 3);
   });
 
-  const metricAxisLabels = [
-    { value: 100, text: '100', color: '#60a5fa' },
-    { value: 95, text: '95', color: '#60a5fa' },
-    { value: 60, text: '60', color: '#ff4d6d' },
-    { value: 35, text: '35', color: '#fbbf24' },
-    { value: 37, text: '37', color: '#fbbf24' },
-  ];
-  metricAxisLabels.forEach(({ value, text, color }) => {
-    ctx.fillStyle = color;
-    ctx.fillText(text, PAD.left - 6, yForValue(value) + 3);
-  });
-
   drawLine(chartData.temp, '#fbbf24', 0, 150);
   drawLine(chartData.hr,   '#ff4d6d', 0, 150);
   drawLine(chartData.spo2, '#60a5fa', 0, 150);
