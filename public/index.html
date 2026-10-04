@@ -361,14 +361,16 @@ function drawChart() {
       ctx.stroke();
     }
 
-    const lastIdx = arr.length - 1;
-    if (arr[lastIdx] !== null) {
-      const x = PAD.left + CW;
-      const y = PAD.top + CH - ((arr[lastIdx] - minVal) / (maxVal - minVal)) * CH;
-      ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill();
-      ctx.fillStyle = color; ctx.font = '10px Space Mono, monospace'; ctx.textAlign = 'right';
-      ctx.fillText(arr[lastIdx].toFixed(1), x - 8, y - 6);
-    }
+    // Render every measurement as a point while keeping the connecting line.
+    arr.forEach((v, i) => {
+      if (v === null) return;
+      const x = PAD.left + (CW / (MAX_POINTS - 1)) * i;
+      const y = PAD.top + CH - ((v - minVal) / (maxVal - minVal)) * CH;
+      ctx.beginPath();
+      ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    });
   }
 
   const axisScaleLabels = [0, 50, 100, 150];
