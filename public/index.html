@@ -361,14 +361,16 @@ function drawChart() {
       ctx.stroke();
     }
 
-    const lastIdx = arr.length - 1;
-    if (arr[lastIdx] !== null) {
-      const x = PAD.left + CW;
-      const y = PAD.top + CH - ((arr[lastIdx] - minVal) / (maxVal - minVal)) * CH;
-      ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill();
-      ctx.fillStyle = color; ctx.font = '10px Space Mono, monospace'; ctx.textAlign = 'right';
-      ctx.fillText(arr[lastIdx].toFixed(1), x - 8, y - 6);
-    }
+    // Render every measurement as a point while keeping the connecting line.
+    arr.forEach((v, i) => {
+      if (v === null) return;
+      const x = PAD.left + (CW / (MAX_POINTS - 1)) * i;
+      const y = PAD.top + CH - ((v - minVal) / (maxVal - minVal)) * CH;
+      ctx.beginPath();
+      ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    });
   }
 
   const axisScaleLabels = [0, 50, 100, 150];
@@ -377,18 +379,6 @@ function drawChart() {
   axisScaleLabels.forEach(value => {
     ctx.fillStyle = 'rgba(255,255,255,0.42)';
     ctx.fillText(String(value), PAD.left - 34, yForValue(value) + 3);
-  });
-
-  const metricAxisLabels = [
-    { value: 100, text: '100', color: '#60a5fa' },
-    { value: 95, text: '95', color: '#60a5fa' },
-    { value: 60, text: '60', color: '#ff4d6d' },
-    { value: 35, text: '35', color: '#fbbf24' },
-    { value: 37, text: '37', color: '#fbbf24' },
-  ];
-  metricAxisLabels.forEach(({ value, text, color }) => {
-    ctx.fillStyle = color;
-    ctx.fillText(text, PAD.left - 6, yForValue(value) + 3);
   });
 
   drawLine(chartData.temp, '#fbbf24', 0, 150);
@@ -412,9 +402,21 @@ function showChartTooltip(index, metric, clientX) {
   }[metric];
   chartTooltip.innerHTML = `<div class="tooltip-time">${time}</div><div class="tooltip-row ${metricDetails[2]}"><span>${metricDetails[0]}</span><strong>${metricDetails[1]}</strong></div>`;
   const wrapRect = chartWrap.getBoundingClientRect();
-  const left = Math.max(8, Math.min(chartWrap.clientWidth - 190, clientX - wrapRect.left - 90));
+  const canvasRect = canvas.getBoundingClientRect();
+  const metricValues = { temp: point.body_temp, hr: point.heart_rate, spo2: point.spo2 };
+  const value = Number(metricValues[metric]);
+  const chartPad = { top: 14, right: 10, bottom: 34, left: 64 };
+  const chartWidth = canvas.clientWidth - chartPad.left - chartPad.right;
+  const chartHeight = canvas.clientHeight - chartPad.top - chartPad.bottom;
+  const pointX = chartPad.left + (chartWidth / (MAX_POINTS - 1)) * index;
+  const pointY = chartPad.top + chartHeight - (value / 150) * chartHeight;
+  const pointLeft = canvasRect.left - wrapRect.left + pointX;
+  const pointTop = canvasRect.top - wrapRect.top + pointY;
+  const tooltipWidth = 190;
+  const left = Math.max(8, Math.min(chartWrap.clientWidth - tooltipWidth - 8, pointLeft + 12));
+  const top = Math.max(8, Math.min(chartWrap.clientHeight - 62, pointTop - 28));
   chartTooltip.style.left = `${left}px`;
-  chartTooltip.style.top = '8px';
+  chartTooltip.style.top = `${top}px`;
   chartTooltip.classList.add('show');
   drawChart();
 }
