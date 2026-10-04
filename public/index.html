@@ -402,9 +402,21 @@ function showChartTooltip(index, metric, clientX) {
   }[metric];
   chartTooltip.innerHTML = `<div class="tooltip-time">${time}</div><div class="tooltip-row ${metricDetails[2]}"><span>${metricDetails[0]}</span><strong>${metricDetails[1]}</strong></div>`;
   const wrapRect = chartWrap.getBoundingClientRect();
-  const left = Math.max(8, Math.min(chartWrap.clientWidth - 190, clientX - wrapRect.left - 90));
+  const canvasRect = canvas.getBoundingClientRect();
+  const metricValues = { temp: point.body_temp, hr: point.heart_rate, spo2: point.spo2 };
+  const value = Number(metricValues[metric]);
+  const chartPad = { top: 14, right: 10, bottom: 34, left: 64 };
+  const chartWidth = canvas.clientWidth - chartPad.left - chartPad.right;
+  const chartHeight = canvas.clientHeight - chartPad.top - chartPad.bottom;
+  const pointX = chartPad.left + (chartWidth / (MAX_POINTS - 1)) * index;
+  const pointY = chartPad.top + chartHeight - (value / 150) * chartHeight;
+  const pointLeft = canvasRect.left - wrapRect.left + pointX;
+  const pointTop = canvasRect.top - wrapRect.top + pointY;
+  const tooltipWidth = 190;
+  const left = Math.max(8, Math.min(chartWrap.clientWidth - tooltipWidth - 8, pointLeft + 12));
+  const top = Math.max(8, Math.min(chartWrap.clientHeight - 62, pointTop - 28));
   chartTooltip.style.left = `${left}px`;
-  chartTooltip.style.top = '8px';
+  chartTooltip.style.top = `${top}px`;
   chartTooltip.classList.add('show');
   drawChart();
 }
