@@ -514,6 +514,7 @@ let dataCount = 0;
   let hasInitializedData = false;
   let serverOnline = false;
 let statsInterval = null;
+let statsCache = { temp: null, hr: null, spo2: null };
 
 function setStatus(online) {
   const badge = document.getElementById('ws-status');
@@ -711,9 +712,13 @@ document.getElementById('reset-chart').addEventListener('click', async (event) =
   selectedChartIndex = null;
   selectedChartMetric = null;
   chartPointerHeld = false;
-  chartTooltip.classList.remove('show');
+    chartTooltip.classList.remove('show');
+    clearStats();
+    dataCount = 0;
+    lastTimestamp = null;
+    hasInitializedData = false;
     drawChart();
-    addLog('Grafik dan data tersimpan berhasil dihapus', 'ok');
+    addLog('Grafik, statistik, dan data tersimpan berhasil dihapus', 'ok');
   } catch (error) {
     addLog(`Reset gagal: ${error.message}`, 'error');
   } finally {
@@ -723,21 +728,37 @@ document.getElementById('reset-chart').addEventListener('click', async (event) =
 });
 
 function updateStats(s) {
-  if (s.temp) {
-    document.getElementById('s-temp-avg').textContent = (s.temp.avg || '--') + '°C';
-    document.getElementById('s-temp-min').textContent = (s.temp.min || '--') + '°C';
-    document.getElementById('s-temp-max').textContent = (s.temp.max || '--') + '°C';
+  statsCache = {
+    temp: s.temp || statsCache.temp,
+    hr: s.hr || statsCache.hr,
+    spo2: s.spo2 || statsCache.spo2,
+  };
+
+  const temp = statsCache.temp;
+  if (temp) {
+    document.getElementById('s-temp-avg').textContent = (temp.avg ?? '--') + '°C';
+    document.getElementById('s-temp-min').textContent = (temp.min ?? '--') + '°C';
+    document.getElementById('s-temp-max').textContent = (temp.max ?? '--') + '°C';
   }
-  if (s.hr) {
-    document.getElementById('s-hr-avg').textContent = (s.hr.avg || '--') + ' bpm';
-    document.getElementById('s-hr-min').textContent = (s.hr.min || '--') + ' bpm';
-    document.getElementById('s-hr-max').textContent = (s.hr.max || '--') + ' bpm';
+  const hr = statsCache.hr;
+  if (hr) {
+    document.getElementById('s-hr-avg').textContent = (hr.avg ?? '--') + ' bpm';
+    document.getElementById('s-hr-min').textContent = (hr.min ?? '--') + ' bpm';
+    document.getElementById('s-hr-max').textContent = (hr.max ?? '--') + ' bpm';
   }
-  if (s.spo2) {
-    document.getElementById('s-spo2-avg').textContent = (s.spo2.avg || '--') + '%';
-    document.getElementById('s-spo2-min').textContent = (s.spo2.min || '--') + '%';
-    document.getElementById('s-spo2-max').textContent = (s.spo2.max || '--') + '%';
+  const spo2 = statsCache.spo2;
+  if (spo2) {
+    document.getElementById('s-spo2-avg').textContent = (spo2.avg ?? '--') + '%';
+    document.getElementById('s-spo2-min').textContent = (spo2.min ?? '--') + '%';
+    document.getElementById('s-spo2-max').textContent = (spo2.max ?? '--') + '%';
   }
+}
+
+function clearStats() {
+  statsCache = { temp: null, hr: null, spo2: null };
+  document.querySelectorAll('.stats-row .val').forEach(element => {
+    element.textContent = '--';
+  });
 }
 
 
