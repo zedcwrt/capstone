@@ -231,7 +231,7 @@
   <div class="bottom-grid">
     <div class="chart-card">
       <div class="card-header">
-        <div class="card-title">Riwayat Real-time (30 data terakhir)</div>
+        <div class="card-title">Riwayat Real-time (<span id="chart-point-count">30</span> data terakhir)</div>
         <div class="card-actions">
           <button class="export-button" id="export-csv" type="button">Unduh CSV</button>
           <button class="reset-button" id="reset-chart" type="button">Reset Grafik</button>
@@ -299,20 +299,30 @@ const POLL_INTERVAL = 3000;
 // ============================================================
 const canvas = document.getElementById('chart');
 const ctx = canvas.getContext('2d');
-const MAX_POINTS = 30;
+  const MAX_POINTS = 30;
+  let visiblePointCount = window.matchMedia('(max-width: 600px)').matches ? 15 : MAX_POINTS;
 
-let chartData = {
-  temp: Array(MAX_POINTS).fill(null),
-  hr:   Array(MAX_POINTS).fill(null),
-  spo2: Array(MAX_POINTS).fill(null),
-};
-let chartPoints = Array(MAX_POINTS).fill(null);
+  let chartData = {
+  temp: Array(visiblePointCount).fill(null),
+  hr:   Array(visiblePointCount).fill(null),
+  spo2: Array(visiblePointCount).fill(null),
+  };
+  let chartPoints = Array(visiblePointCount).fill(null);
 let selectedChartIndex = null;
 let selectedChartMetric = null;
 let chartPointerHeld = false;
 
   function resizeCanvas() {
   canvas.width = Math.max(280, canvas.parentElement.clientWidth);
+  const nextPointCount = window.matchMedia('(max-width: 600px)').matches ? 15 : MAX_POINTS;
+  document.getElementById('chart-point-count').textContent = nextPointCount;
+  if (nextPointCount !== visiblePointCount) {
+    visiblePointCount = nextPointCount;
+    chartData.temp = chartData.temp.slice(-visiblePointCount);
+    chartData.hr = chartData.hr.slice(-visiblePointCount);
+    chartData.spo2 = chartData.spo2.slice(-visiblePointCount);
+    chartPoints = chartPoints.slice(-visiblePointCount);
+  }
   drawChart();
   }
 
@@ -348,7 +358,7 @@ function drawChart() {
       let started = false;
       arr.forEach((v, i) => {
         if (v === null) { started = false; return; }
-        const x = PAD.left + (CW / (MAX_POINTS - 1)) * i;
+        const x = PAD.left + (CW / (visiblePointCount - 1)) * i;
         const y = PAD.top + CH - ((v - minVal) / (maxVal - minVal)) * CH;
         if (!started) { ctx.moveTo(x, y); started = true; }
         else ctx.lineTo(x, y);
@@ -359,7 +369,7 @@ function drawChart() {
     // Render every measurement as a point while keeping the connecting line.
     arr.forEach((v, i) => {
       if (v === null) return;
-      const x = PAD.left + (CW / (MAX_POINTS - 1)) * i;
+      const x = PAD.left + (CW / (visiblePointCount - 1)) * i;
       const y = PAD.top + CH - ((v - minVal) / (maxVal - minVal)) * CH;
       ctx.beginPath();
       ctx.arc(x, y, 3.5, 0, Math.PI * 2);
@@ -403,7 +413,7 @@ function showChartTooltip(index, metric, clientX) {
   const chartPad = { top: 14, right: 10, bottom: 34, left: 64 };
   const chartWidth = canvas.clientWidth - chartPad.left - chartPad.right;
   const chartHeight = canvas.clientHeight - chartPad.top - chartPad.bottom;
-  const pointX = chartPad.left + (chartWidth / (MAX_POINTS - 1)) * index;
+  const pointX = chartPad.left + (chartWidth / (visiblePointCount - 1)) * index;
   const pointY = chartPad.top + chartHeight - (value / 150) * chartHeight;
   const pointLeft = canvasRect.left - wrapRect.left + pointX;
   const pointTop = canvasRect.top - wrapRect.top + pointY;
@@ -437,7 +447,7 @@ function chartPointFromEvent(event) {
   const padTop = 14;
   const padBottom = 34;
   const usableWidth = canvas.width - padLeft - padRight;
-  const index = Math.max(0, Math.min(MAX_POINTS - 1, Math.round((x - padLeft) / (usableWidth / (MAX_POINTS - 1)))));
+  const index = Math.max(0, Math.min(visiblePointCount - 1, Math.round((x - padLeft) / (usableWidth / (visiblePointCount - 1)))));
   const chartHeight = canvas.height - padTop - padBottom;
   const series = [
     ['temp', chartData.temp[index]],
@@ -564,7 +574,7 @@ async function pollHistory(latest = null) {
     const json = await res.json();
     if (json.history && json.history.length > 0) {
       addLog(`History: ${json.history.length} data dimuat`, 'ok');
-      json.history.slice(-MAX_POINTS).forEach(d => pushChartData(d));
+      json.history.slice(-visiblePointCount).forEach(d => pushChartData(d));
       // History sudah ditampilkan; jadikan data terakhir sebagai cursor awal.
       lastTimestamp = (latest || json.history.at(-1)).timestamp;
     } else if (latest) {
@@ -589,8 +599,8 @@ function pushChartData(d) {
   chartData.hr.push(d.heart_rate > 0 ? normalize(d.heart_rate, 40, 160) : null);
   chartData.spo2.push(d.spo2 > 0 ? normalize(d.spo2, 80, 100) : null);
   chartPoints.push({ ...d });
-  if (chartData.temp.length > MAX_POINTS) {
-    chartData.temp.shift(); chartData.hr.shift(); chartData.spo2.shift(); chartPoints.shift();
+  if (chartData.temp.length > visiblePointCount) {
+  chartData.temp.shift(); chartData.hr.shift(); chartData.spo2.shift(); chartPoints.shift();
   }
   drawChart();
 }
@@ -703,12 +713,12 @@ document.getElementById('reset-chart').addEventListener('click', async (event) =
     const result = await response.json();
     if (!response.ok || !result.deleted) throw new Error(result.error || 'Data Redis gagal dihapus');
 
-    chartData = {
-    temp: Array(MAX_POINTS).fill(null),
-    hr: Array(MAX_POINTS).fill(null),
-    spo2: Array(MAX_POINTS).fill(null),
+  chartData = {
+  temp: Array(visiblePointCount).fill(null),
+  hr: Array(visiblePointCount).fill(null),
+  spo2: Array(visiblePointCount).fill(null),
   };
-  chartPoints = Array(MAX_POINTS).fill(null);
+  chartPoints = Array(visiblePointCount).fill(null);
   selectedChartIndex = null;
   selectedChartMetric = null;
   chartPointerHeld = false;
