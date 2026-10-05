@@ -86,7 +86,7 @@
   .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
   @media (max-width: 768px) { .metrics-grid { grid-template-columns: repeat(2, 1fr); } }
   .metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; position: relative; overflow: hidden; transition: border-color 0.3s; }
-  .metric-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: currentColor; opacity: 0.4; }
+  .metric-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: currentColor; opacity: 1; }
   .metric-card.temp { color: var(--amber); }
   .metric-card.hr   { color: var(--pulse); }
   .metric-card.spo2 { color: var(--blue); }
