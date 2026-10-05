@@ -452,9 +452,9 @@ function chartPointFromEvent(event) {
   const padRight = 10;
   const padTop = 14;
   const padBottom = 34;
-  const usableWidth = canvas.width - padLeft - padRight;
+  const usableWidth = canvas.clientWidth - padLeft - padRight;
   const index = Math.max(0, Math.min(visiblePointCount - 1, Math.round((x - padLeft) / (usableWidth / (visiblePointCount - 1)))));
-  const chartHeight = canvas.height - padTop - padBottom;
+  const chartHeight = canvas.clientHeight - padTop - padBottom;
   const series = [
     ['temp', chartData.temp[index]],
     ['hr', chartData.hr[index]],
