@@ -313,7 +313,14 @@ let selectedChartMetric = null;
 let chartPointerHeld = false;
 
   function resizeCanvas() {
-  canvas.width = Math.max(280, canvas.parentElement.clientWidth);
+  const cssWidth = Math.max(280, canvas.parentElement.clientWidth);
+  const cssHeight = canvas.clientHeight || 220;
+  const pixelRatio = Math.min(window.devicePixelRatio || 1, 3);
+  canvas.width = Math.round(cssWidth * pixelRatio);
+  canvas.height = Math.round(cssHeight * pixelRatio);
+  canvas.style.width = `${cssWidth}px`;
+  canvas.style.height = `${cssHeight}px`;
+  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   const nextPointCount = window.matchMedia('(max-width: 600px)').matches ? 15 : MAX_POINTS;
   document.getElementById('chart-point-count').textContent = nextPointCount;
   if (nextPointCount !== visiblePointCount) {
@@ -327,8 +334,8 @@ let chartPointerHeld = false;
   }
 
 function drawChart() {
-  const W = canvas.width;
-  const H = canvas.height;
+  const W = canvas.clientWidth;
+  const H = canvas.clientHeight;
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = '#111620';
   ctx.fillRect(0, 0, W, H);
@@ -418,8 +425,10 @@ function showChartTooltip(index, metric, clientX) {
   const pointLeft = canvasRect.left - wrapRect.left + pointX;
   const pointTop = canvasRect.top - wrapRect.top + pointY;
   const tooltipWidth = 190;
+  const tooltipHeight = chartTooltip.offsetHeight || 62;
   const left = Math.max(8, Math.min(chartWrap.clientWidth - tooltipWidth - 8, pointLeft + 12));
-  const top = Math.max(8, Math.min(chartWrap.clientHeight - 62, pointTop - 28));
+  // Keep the detail card above the selected point so a finger does not cover it.
+  const top = Math.max(8, pointTop - tooltipHeight - 12);
   chartTooltip.style.left = `${left}px`;
   chartTooltip.style.top = `${top}px`;
   chartTooltip.classList.add('show');
@@ -436,19 +445,16 @@ function hideChartTooltip() {
 
 function chartPointFromEvent(event) {
   const rect = canvas.getBoundingClientRect();
-  // Convert pointer coordinates back to the canvas coordinate system so hover
-  // remains accurate when the responsive canvas is displayed at a different CSS width.
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
-  const x = (event.clientX - rect.left) * scaleX;
-  const y = (event.clientY - rect.top) * scaleY;
+ // Use CSS-pixel coordinates because the drawing surface is scaled for high-DPI displays.
+ const x = event.clientX - rect.left;
+ const y = event.clientY - rect.top;
   const padLeft = 64;
   const padRight = 10;
   const padTop = 14;
   const padBottom = 34;
-  const usableWidth = canvas.width - padLeft - padRight;
+  const usableWidth = canvas.clientWidth - padLeft - padRight;
   const index = Math.max(0, Math.min(visiblePointCount - 1, Math.round((x - padLeft) / (usableWidth / (visiblePointCount - 1)))));
-  const chartHeight = canvas.height - padTop - padBottom;
+  const chartHeight = canvas.clientHeight - padTop - padBottom;
   const series = [
     ['temp', chartData.temp[index]],
     ['hr', chartData.hr[index]],
