@@ -425,8 +425,10 @@ function showChartTooltip(index, metric, clientX) {
   const pointLeft = canvasRect.left - wrapRect.left + pointX;
   const pointTop = canvasRect.top - wrapRect.top + pointY;
   const tooltipWidth = 190;
+  const tooltipHeight = chartTooltip.offsetHeight || 62;
   const left = Math.max(8, Math.min(chartWrap.clientWidth - tooltipWidth - 8, pointLeft + 12));
-  const top = Math.max(8, Math.min(chartWrap.clientHeight - 62, pointTop - 28));
+  // Keep the detail card above the selected point so a finger does not cover it.
+  const top = Math.max(8, pointTop - tooltipHeight - 12);
   chartTooltip.style.left = `${left}px`;
   chartTooltip.style.top = `${top}px`;
   chartTooltip.classList.add('show');
