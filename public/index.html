@@ -86,7 +86,7 @@
   .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
   @media (max-width: 768px) { .metrics-grid { grid-template-columns: repeat(2, 1fr); } }
   .metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; position: relative; overflow: hidden; transition: border-color 0.3s; }
-  .metric-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: currentColor; opacity: 0.4; }
+  .metric-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: currentColor; opacity: 1; }
   .metric-card.temp { color: var(--amber); }
   .metric-card.hr   { color: var(--pulse); }
   .metric-card.spo2 { color: var(--blue); }
@@ -97,9 +97,12 @@
   @keyframes flash-val { 0% { opacity: 0.3; transform: scale(0.96); } 100% { opacity: 1; transform: scale(1); } }
   .metric-unit { font-size: 13px; font-family: 'Manrope', monospace; color: var(--muted); margin-left: 4px; }
   .metric-sub { font-size: 11px; color: var(--muted); margin-top: 8px; }
-  .metric-icon { position: absolute; top: 16px; right: 16px; font-size: 26px; opacity: 0.15; }
+  .metric-icon { position: absolute; top: 16px; right: 16px; width: 28px; height: 28px; opacity: 1; }
+  .metric-icon svg, .stat-icon, .no-signal-icon svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .stat-title { display: flex; align-items: center; gap: 7px; }
+  .stat-icon { width: 15px; height: 15px; color: var(--muted); }
   .hr-icon { animation: beat 1s infinite; }
-  @keyframes beat { 0%, 100% { transform: scale(1); opacity: 0.15; } 50% { transform: scale(1.3); opacity: 0.3; } }
+  @keyframes beat { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.3); opacity: 1; } }
   .bottom-grid { display: grid; grid-template-columns: 1fr 360px; gap: 16px; margin-bottom: 24px; }
   @media (max-width: 900px) { .bottom-grid { grid-template-columns: 1fr; } }
   .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
@@ -176,7 +179,7 @@
   .stat-row .lbl { color: var(--muted); }
   .stat-row .val { font-weight: 700; }
   .no-signal { text-align: center; padding: 40px; color: var(--muted); font-size: 13px; font-family: 'Manrope', monospace; }
-  .no-signal-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.3; }
+  .no-signal-icon { width: 42px; height: 42px; margin: 0 auto 12px; opacity: 1; }
 </style>
 </head>
 <body>
@@ -206,25 +209,25 @@
       <div class="metric-label">Suhu Tubuh</div>
       <div class="metric-value" id="val-temp">--<span class="metric-unit">°C</span></div>
       <div class="metric-sub" id="sub-temp">Status: Standby</div>
-      <div class="metric-icon">🌡️</div>
+      <div class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 14.76V5a2 2 0 0 0-4 0v9.76a4 4 0 1 0 4 0Z"/><path d="M12 3v11"/></svg></div>
     </div>
     <div class="metric-card hr">
       <div class="metric-label">Detak Jantung</div>
       <div class="metric-value" id="val-hr">--<span class="metric-unit">bpm</span></div>
       <div class="metric-sub">Terakhir beat: <span id="sub-hr">--</span></div>
-      <div class="metric-icon hr-icon">❤️</div>
+      <div class="metric-icon hr-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20.8 8.7c0 5.1-8.8 10.2-8.8 10.2S3.2 13.8 3.2 8.7A4.7 4.7 0 0 1 12 6.1a4.7 4.7 0 0 1 8.8 2.6Z"/></svg></div>
     </div>
     <div class="metric-card spo2">
       <div class="metric-label">Saturasi O₂</div>
       <div class="metric-value" id="val-spo2">--<span class="metric-unit">%</span></div>
       <div class="metric-sub" id="sub-spo2">Normal ≥ 95%</div>
-      <div class="metric-icon">💨</div>
+      <div class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/><path d="M5 18h14"/></svg></div>
     </div>
     <div class="metric-card status">
       <div class="metric-label">Status</div>
       <div class="metric-value" id="val-status" style="font-size:20px;padding-top:8px">--</div>
       <div class="metric-sub">Data ke-<span id="data-count">0</span></div>
-      <div class="metric-icon">✅</div>
+      <div class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.5 2.9 8.5 7 10 4.1-1.5 7-5.5 7-10V6l-7-3Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg></div>
     </div>
   </div>
 
@@ -254,7 +257,7 @@
       </div>
       <div class="log-list" id="log-list">
         <div class="no-signal">
-          <div class="no-signal-icon">📡</div>
+          <div class="no-signal-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 17a10 10 0 0 1 14 0"/><path d="M8 14a6 6 0 0 1 8 0"/><path d="M11 11a2 2 0 0 1 2 0"/><path d="M12 20h.01"/></svg></div>
           Menunggu data masuk...
         </div>
       </div>
@@ -263,19 +266,19 @@
 
   <div class="stats-row">
     <div class="stat-card">
-      <div class="stat-title">🌡️ Statistik Suhu</div>
+      <div class="stat-title"><svg class="stat-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 14.76V5a2 2 0 0 0-4 0v9.76a4 4 0 1 0 4 0Z"/><path d="M12 3v11"/></svg> Statistik Suhu</div>
       <div class="stat-row"><span class="lbl">Rata-rata</span><span class="val" id="s-temp-avg">--</span></div>
       <div class="stat-row"><span class="lbl">Minimum</span><span class="val" id="s-temp-min">--</span></div>
       <div class="stat-row"><span class="lbl">Maksimum</span><span class="val" id="s-temp-max">--</span></div>
     </div>
     <div class="stat-card">
-      <div class="stat-title">❤️ Statistik Detak</div>
+      <div class="stat-title"><svg class="stat-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 8.7c0 5.1-8.8 10.2-8.8 10.2S3.2 13.8 3.2 8.7A4.7 4.7 0 0 1 12 6.1a4.7 4.7 0 0 1 8.8 2.6Z"/></svg> Statistik Detak</div>
       <div class="stat-row"><span class="lbl">Rata-rata</span><span class="val" id="s-hr-avg">--</span></div>
       <div class="stat-row"><span class="lbl">Minimum</span><span class="val" id="s-hr-min">--</span></div>
       <div class="stat-row"><span class="lbl">Maksimum</span><span class="val" id="s-hr-max">--</span></div>
     </div>
     <div class="stat-card">
-      <div class="stat-title">💨 Statistik SpO₂</div>
+      <div class="stat-title"><svg class="stat-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l2-5 4 10 2-5h6"/><path d="M5 18h14"/></svg> Statistik SpO₂</div>
       <div class="stat-row"><span class="lbl">Rata-rata</span><span class="val" id="s-spo2-avg">--</span></div>
       <div class="stat-row"><span class="lbl">Minimum</span><span class="val" id="s-spo2-min">--</span></div>
       <div class="stat-row"><span class="lbl">Maksimum</span><span class="val" id="s-spo2-max">--</span></div>
@@ -627,7 +630,7 @@ function updateMetrics(d) {
     flashUpdate('val-spo2', `${d.spo2.toFixed(1)}<span class="metric-unit">%</span>`);
     const spo2El = document.getElementById('sub-spo2');
     if (d.spo2 < 95) {
-      spo2El.textContent = '⚠️ Di bawah normal!'; spo2El.style.color = 'var(--red)';
+      spo2El.textContent = 'Di bawah normal!'; spo2El.style.color = 'var(--red)';
     } else {
       spo2El.textContent = 'Normal ≥ 95%'; spo2El.style.color = 'var(--muted)';
     }
