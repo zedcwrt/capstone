@@ -111,7 +111,7 @@
   .chart-hint { font-size: 10px; color: var(--muted); margin: -8px 0 10px; font-family: 'Manrope', monospace; }
   .chart-tooltip { position: absolute; z-index: 2; min-width: 178px; padding: 10px 12px; border: 1px solid rgba(255,255,255,0.14); border-radius: 8px; background: rgba(17,22,32,0.96); box-shadow: 0 8px 24px rgba(0,0,0,0.35); pointer-events: none; opacity: 0; transform: translateY(4px); transition: opacity 0.15s, transform 0.15s; font: 10px/1.7 'Manrope', monospace; }
   .chart-tooltip.show { opacity: 1; transform: translateY(0); }
-  .tooltip-time { color: var(--muted); margin-bottom: 3px; }
+  .tooltip-time { display: flex; align-items: center; justify-content: space-between; gap: 28px; color: var(--muted); margin-bottom: 3px; white-space: nowrap; }
   .tooltip-row { display: flex; justify-content: space-between; gap: 16px; }
   .tooltip-row strong { color: var(--text); }
   .tooltip-temp { color: var(--amber); }
@@ -410,22 +410,27 @@ function showChartTooltip(index, metric, clientX) {
   if (!point || !metric) return;
   selectedChartIndex = index;
   selectedChartMetric = metric;
-  const time = point.timestamp
-    ? new Date(point.timestamp).toLocaleString('id-ID', {
-        hour: '2-digit',
-        minute: '2-digit',
+  const date = point.timestamp
+    ? new Date(point.timestamp).toLocaleDateString('id-ID', {
         day: '2-digit',
         month: 'short',
-        year: 'numeric',
+        year: 'numeric'
+      })
+    : '--';
+  const time = point.timestamp
+    ? new Date(point.timestamp).toLocaleTimeString('id-ID', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
         hour12: false
-      }).replace(',', '')
-    : 'Waktu tidak tersedia';
+      }).replaceAll(':', '.')
+    : '--';
   const metricDetails = {
     temp: ['Suhu', point.body_temp > 0 ? point.body_temp.toFixed(1) + ' °C' : '--', 'tooltip-temp'],
     hr: ['Detak jantung', point.heart_rate > 0 ? Math.round(point.heart_rate) + ' bpm' : '--', 'tooltip-hr'],
     spo2: ['SpO₂', point.spo2 > 0 ? point.spo2.toFixed(1) + '%' : '--', 'tooltip-spo2']
   }[metric];
-  chartTooltip.innerHTML = `<div class="tooltip-time">${time}</div><div class="tooltip-row ${metricDetails[2]}"><span>${metricDetails[0]}</span><strong>${metricDetails[1]}</strong></div>`;
+  chartTooltip.innerHTML = `<div class="tooltip-time"><span>${date}</span><span>${time}</span></div><div class="tooltip-row ${metricDetails[2]}"><span>${metricDetails[0]}</span><strong>${metricDetails[1]}</strong></div>`;
   const wrapRect = chartWrap.getBoundingClientRect();
   const canvasRect = canvas.getBoundingClientRect();
   const metricValues = { temp: point.body_temp, hr: point.heart_rate, spo2: point.spo2 };
