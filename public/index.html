@@ -573,6 +573,8 @@ async function pollLatest() {
       addLog('Server Vercel terhubung ✓', 'ok');
       // Sinkronkan cursor dengan history agar data lama tidak dihitung sebagai input baru.
       await pollHistory(json.data);
+      if (json.data) updateMetrics(json.data, false);
+      await pollStats();
       hasInitializedData = true;
     }
 
@@ -629,8 +631,8 @@ function pushChartData(d) {
   drawChart();
 }
 
-function updateMetrics(d) {
-  dataCount++;
+function updateMetrics(d, appendToChart = true) {
+  if (appendToChart) dataCount++;
   document.getElementById('data-count').textContent = dataCount;
 
   if (d.body_temp > 0) {
@@ -656,11 +658,24 @@ function updateMetrics(d) {
   statusEl.innerHTML = status;
   statusEl.style.color = status === 'Normal' ? 'var(--green)' : 'var(--red)';
 
-  addLog(
-    `T:${d.body_temp?.toFixed(1)}°C HR:${Math.round(d.heart_rate)}bpm SpO2:${d.spo2?.toFixed(1)}%`,
-    status === 'Normal' ? 'ok' : 'warn'
-  );
-  pushChartData(d);
+  if (appendToChart) {
+    addLog(
+      `T:${d.body_temp?.toFixed(1)}°C HR:${Math.round(d.heart_rate)}bpm SpO2:${d.spo2?.toFixed(1)}%`,
+      status === 'Normal' ? 'ok' : 'warn'
+    );
+    pushChartData(d);
+  }
+}
+
+function clearLatestMetrics() {
+  document.getElementById('val-temp').innerHTML = '--<span class="metric-unit">°C</span>';
+  document.getElementById('val-hr').innerHTML = '--<span class="metric-unit">bpm</span>';
+  document.getElementById('val-spo2').innerHTML = '--<span class="metric-unit">%</span>';
+  document.getElementById('val-status').textContent = '--';
+  document.getElementById('sub-temp').textContent = 'Menunggu data sensor';
+  document.getElementById('sub-hr').textContent = 'Menunggu data sensor';
+  document.getElementById('sub-spo2').textContent = 'Menunggu data sensor';
+  document.getElementById('sub-status').textContent = 'Menunggu data sensor';
 }
 
 function flashUpdate(id, html) {
@@ -748,6 +763,7 @@ document.getElementById('reset-chart').addEventListener('click', async (event) =
   chartPointerHeld = false;
     chartTooltip.classList.remove('show');
     clearStats();
+    clearLatestMetrics();
     dataCount = 0;
     lastTimestamp = null;
     hasInitializedData = false;
