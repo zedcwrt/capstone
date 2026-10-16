@@ -1,5 +1,8 @@
 {
   "version": 2,
+  "crons": [
+    { "path": "/api/cleanup", "schedule": "59 16 * * *" }
+  ],
   "routes": [
     { "src": "/input", "dest": "/api/input" },
     { "src": "/(.*)", "dest": "/public/$1" }

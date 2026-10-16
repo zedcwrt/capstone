@@ -119,8 +119,8 @@
   .tooltip-spo2 { color: var(--blue); }
   .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
   .card-actions { display: flex; align-items: center; gap: 10px; }
-  .export-button, .reset-button { border: 1px solid var(--border); border-radius: 7px; padding: 7px 10px; background: transparent; color: var(--muted); font: 10px 'Manrope', sans-serif; cursor: pointer; transition: background 0.2s, border-color 0.2s, color 0.2s; }
- .export-button:hover, .export-button:focus-visible, .reset-button:hover, .reset-button:focus-visible { color: var(--text); border-color: rgba(255,255,255,0.25); background: var(--surface2); outline: none; }
+  .export-button { border: 1px solid var(--border); border-radius: 7px; padding: 7px 10px; background: transparent; color: var(--muted); font: 10px 'Manrope', sans-serif; cursor: pointer; transition: background 0.2s, border-color 0.2s, color 0.2s; }
+  .export-button:hover, .export-button:focus-visible { color: var(--text); border-color: rgba(255,255,255,0.25); background: var(--surface2); outline: none; }
   .export-button:disabled { cursor: wait; opacity: 0.6; }
   .card-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); font-weight: 500; }
   .legend { display: flex; gap: 12px; }
@@ -238,8 +238,7 @@
         <div class="card-title">Riwayat Real-time (<span id="chart-point-count">30</span> data terakhir)</div>
         <div class="card-actions">
           <button class="export-button" id="export-csv" type="button">Unduh CSV</button>
-          <button class="reset-button" id="reset-chart" type="button">Reset Grafik</button>
-          <div class="legend">
+                  <div class="legend">
           <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div>Suhu</div>
           <div class="legend-item"><div class="legend-dot" style="background:var(--pulse)"></div>HR</div>
           <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>SpO₂</div>
@@ -573,6 +572,8 @@ async function pollLatest() {
       addLog('Server Vercel terhubung ✓', 'ok');
       // Sinkronkan cursor dengan history agar data lama tidak dihitung sebagai input baru.
       await pollHistory(json.data);
+      if (json.data) updateMetrics(json.data, false);
+      await pollStats();
       hasInitializedData = true;
     }
 
@@ -629,8 +630,8 @@ function pushChartData(d) {
   drawChart();
 }
 
-function updateMetrics(d) {
-  dataCount++;
+function updateMetrics(d, appendToChart = true) {
+  if (appendToChart) dataCount++;
   document.getElementById('data-count').textContent = dataCount;
 
   if (d.body_temp > 0) {
@@ -656,11 +657,13 @@ function updateMetrics(d) {
   statusEl.innerHTML = status;
   statusEl.style.color = status === 'Normal' ? 'var(--green)' : 'var(--red)';
 
-  addLog(
-    `T:${d.body_temp?.toFixed(1)}°C HR:${Math.round(d.heart_rate)}bpm SpO2:${d.spo2?.toFixed(1)}%`,
-    status === 'Normal' ? 'ok' : 'warn'
-  );
-  pushChartData(d);
+  if (appendToChart) {
+    addLog(
+      `T:${d.body_temp?.toFixed(1)}°C HR:${Math.round(d.heart_rate)}bpm SpO2:${d.spo2?.toFixed(1)}%`,
+      status === 'Normal' ? 'ok' : 'warn'
+    );
+    pushChartData(d);
+  }
 }
 
 function flashUpdate(id, html) {
@@ -725,41 +728,6 @@ async function exportSensorData() {
 }
 
 document.getElementById('export-csv').addEventListener('click', exportSensorData);
-
-document.getElementById('reset-chart').addEventListener('click', async (event) => {
-  const button = event.currentTarget;
-  const originalLabel = button.textContent;
-  button.disabled = true;
-  button.textContent = 'Menghapus...';
-
-  try {
-    const response = await fetch('/api/input', { method: 'DELETE' });
-    const result = await response.json();
-    if (!response.ok || !result.deleted) throw new Error(result.error || 'Data Redis gagal dihapus');
-
-  chartData = {
-  temp: Array(visiblePointCount).fill(null),
-  hr: Array(visiblePointCount).fill(null),
-  spo2: Array(visiblePointCount).fill(null),
-  };
-  chartPoints = Array(visiblePointCount).fill(null);
-  selectedChartIndex = null;
-  selectedChartMetric = null;
-  chartPointerHeld = false;
-    chartTooltip.classList.remove('show');
-    clearStats();
-    dataCount = 0;
-    lastTimestamp = null;
-    hasInitializedData = false;
-    drawChart();
-    addLog('Grafik, statistik, dan data tersimpan berhasil dihapus', 'ok');
-  } catch (error) {
-    addLog(`Reset gagal: ${error.message}`, 'error');
-  } finally {
-    button.disabled = false;
-    button.textContent = originalLabel;
-  }
-});
 
 function updateStats(s) {
   statsCache = {
