@@ -235,7 +235,7 @@
     <div class="metric-card status">
       <div class="metric-label">Status</div>
       <div class="metric-value" id="val-status" style="font-size:20px;padding-top:8px">--</div>
-      <div class="metric-sub" id="sub-status">Status: Standby</div>
+      <div class="metric-sub" id="sub-status">Detak / Suhu</div>
       <div class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.5 2.9 8.5 7 10 4.1-1.5 7-5.5 7-10V6l-7-3Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg></div>
     </div>
   </div>
@@ -668,7 +668,7 @@ function updateMetrics(d, appendToChart = true) {
   const statusEl = document.getElementById('val-status');
   statusEl.textContent = status || 'Menunggu data';
   statusEl.style.color = heartStatus && tempStatus && heartStatus === 'Normal' && tempStatus === 'Normal' ? 'var(--green)' : 'var(--red)';
-  setSubtitle('sub-status', status ? (heartStatus === 'Normal' && tempStatus === 'Normal' ? 'Normal' : 'Abnormal') : null);
+
 
   if (appendToChart) {
     addLog(
