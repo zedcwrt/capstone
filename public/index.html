@@ -223,19 +223,19 @@
     <div class="metric-card hr">
       <div class="metric-label">Detak Jantung</div>
       <div class="metric-value" id="val-hr">--<span class="metric-unit">bpm</span></div>
-      <div class="metric-sub">Terakhir beat: <span id="sub-hr">--</span></div>
+      <div class="metric-sub" id="sub-hr">Status: Standby</div>
       <div class="metric-icon hr-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20.8 8.7c0 5.1-8.8 10.2-8.8 10.2S3.2 13.8 3.2 8.7A4.7 4.7 0 0 1 12 6.1a4.7 4.7 0 0 1 8.8 2.6Z"/></svg></div>
     </div>
     <div class="metric-card spo2">
       <div class="metric-label">Saturasi O₂</div>
       <div class="metric-value" id="val-spo2">--<span class="metric-unit">%</span></div>
-      <div class="metric-sub" id="sub-spo2">Normal ≥ 95%</div>
+      <div class="metric-sub" id="sub-spo2">Status: Standby</div>
       <div class="metric-icon oxygen-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="8" cy="12" r="6"/><path class="oxygen-two" d="M16 9.5c0-1 3-1 3 0 0 .8-3 2.3-3 3.8h3"/></svg></div>
     </div>
     <div class="metric-card status">
       <div class="metric-label">Status</div>
       <div class="metric-value" id="val-status" style="font-size:20px;padding-top:8px">--</div>
-      <div class="metric-sub">Detak / Suhu</div>
+      <div class="metric-sub" id="sub-status">Status: Standby</div>
       <div class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.5 2.9 8.5 7 10 4.1-1.5 7-5.5 7-10V6l-7-3Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg></div>
     </div>
   </div>
@@ -645,28 +645,30 @@ function updateMetrics(d, appendToChart = true) {
   const tempStatus = d.body_temp > 0 ? (d.body_temp < 36.5 ? 'Rendah' : d.body_temp <= 37.5 ? 'Normal' : 'Tinggi') : null;
   const heartStatus = d.heart_rate > 0 ? (d.heart_rate < 60 ? 'Lambat' : d.heart_rate <= 100 ? 'Normal' : 'Cepat') : null;
 
+  const setSubtitle = (id, status) => {
+    const element = document.getElementById(id);
+    element.textContent = `Status: ${status || 'Standby'}`;
+    element.style.color = status && status !== 'Normal' ? 'var(--red)' : 'var(--muted)';
+  };
+
   if (d.body_temp > 0) {
     flashUpdate('val-temp', `${d.body_temp.toFixed(1)}<span class="metric-unit">°C</span>`);
-    document.getElementById('sub-temp').textContent = `Status: ${tempStatus}`;
+    setSubtitle('sub-temp', tempStatus);
   }
   if (d.heart_rate > 0) {
     flashUpdate('val-hr', `${Math.round(d.heart_rate)}<span class="metric-unit">bpm</span>`);
-    document.getElementById('sub-hr').textContent = `Status: ${heartStatus}`;
+    setSubtitle('sub-hr', heartStatus);
   }
   if (d.spo2 > 0) {
     flashUpdate('val-spo2', `${d.spo2.toFixed(1)}<span class="metric-unit">%</span>`);
-    const spo2El = document.getElementById('sub-spo2');
-    if (d.spo2 < 95) {
-      spo2El.textContent = 'Di bawah normal!'; spo2El.style.color = 'var(--red)';
-    } else {
-      spo2El.textContent = 'Normal ≥ 95%'; spo2El.style.color = 'var(--muted)';
-    }
+    setSubtitle('sub-spo2', d.spo2 < 95 ? 'Rendah' : 'Normal');
   }
 
   const status = [heartStatus, tempStatus].filter(Boolean).join(' / ');
   const statusEl = document.getElementById('val-status');
   statusEl.textContent = status || 'Menunggu data';
   statusEl.style.color = heartStatus && tempStatus && heartStatus === 'Normal' && tempStatus === 'Normal' ? 'var(--green)' : 'var(--red)';
+  setSubtitle('sub-status', status ? (heartStatus === 'Normal' && tempStatus === 'Normal' ? 'Normal' : 'Abnormal') : null);
 
   if (appendToChart) {
     addLog(
