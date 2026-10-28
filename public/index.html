@@ -642,13 +642,16 @@ function updateMetrics(d, appendToChart = true) {
   if (appendToChart) dataCount++;
   document.getElementById('data-count').textContent = dataCount;
 
+  const tempStatus = d.body_temp > 0 ? (d.body_temp < 36.5 ? 'Rendah' : d.body_temp <= 37.5 ? 'Normal' : 'Tinggi') : null;
+  const heartStatus = d.heart_rate > 0 ? (d.heart_rate < 60 ? 'Lambat' : d.heart_rate <= 100 ? 'Normal' : 'Cepat') : null;
+
   if (d.body_temp > 0) {
     flashUpdate('val-temp', `${d.body_temp.toFixed(1)}<span class="metric-unit">°C</span>`);
-    document.getElementById('sub-temp').textContent = `Status: ${d.tempStatus || 'Terbaca'}`;
+    document.getElementById('sub-temp').textContent = `Status: ${tempStatus}`;
   }
   if (d.heart_rate > 0) {
     flashUpdate('val-hr', `${Math.round(d.heart_rate)}<span class="metric-unit">bpm</span>`);
-    document.getElementById('sub-hr').textContent = new Date().toLocaleTimeString('id-ID');
+    document.getElementById('sub-hr').textContent = `Status: ${heartStatus}`;
   }
   if (d.spo2 > 0) {
     flashUpdate('val-spo2', `${d.spo2.toFixed(1)}<span class="metric-unit">%</span>`);
@@ -660,10 +663,10 @@ function updateMetrics(d, appendToChart = true) {
     }
   }
 
-  const status = d.health_status || 'Normal';
+  const status = [heartStatus, tempStatus].filter(Boolean).join(' / ');
   const statusEl = document.getElementById('val-status');
-  statusEl.innerHTML = status;
-  statusEl.style.color = status === 'Normal' ? 'var(--green)' : 'var(--red)';
+  statusEl.textContent = status || 'Menunggu data';
+  statusEl.style.color = heartStatus && tempStatus && heartStatus === 'Normal' && tempStatus === 'Normal' ? 'var(--green)' : 'var(--red)';
 
   if (appendToChart) {
     addLog(
