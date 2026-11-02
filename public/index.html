@@ -333,7 +333,8 @@ let chartPointerHeld = false;
   canvas.style.height = `${cssHeight}px`;
   ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   const nextPointCount = window.matchMedia('(max-width: 600px)').matches ? 15 : MAX_POINTS;
-  document.getElementById('chart-point-count').textContent = nextPointCount;
+  const chartPointCount = document.getElementById('chart-point-count');
+  if (chartPointCount) chartPointCount.textContent = nextPointCount;
   if (nextPointCount !== visiblePointCount) {
     visiblePointCount = nextPointCount;
     chartData.temp = chartData.temp.slice(-visiblePointCount);
@@ -640,13 +641,15 @@ function pushChartData(d) {
 
 function updateMetrics(d, appendToChart = true) {
   if (appendToChart) dataCount++;
-  document.getElementById('data-count').textContent = dataCount;
+  const dataCountElement = document.getElementById('data-count');
+  if (dataCountElement) dataCountElement.textContent = dataCount;
 
   const tempStatus = d.body_temp > 0 ? (d.body_temp < 36.5 ? 'Rendah' : d.body_temp <= 37.5 ? 'Normal' : 'Tinggi') : null;
   const heartStatus = d.heart_rate > 0 ? (d.heart_rate < 60 ? 'Lambat' : d.heart_rate <= 100 ? 'Normal' : 'Cepat') : null;
 
   const setStatusSubtitle = (id, status) => {
     const element = document.getElementById(id);
+    if (!element) return;
     element.textContent = `Status: ${status || 'Standby'}`;
     element.style.color = status && status !== 'Normal' ? 'var(--red)' : 'var(--muted)';
   };
