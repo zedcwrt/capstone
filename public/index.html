@@ -82,6 +82,17 @@
   .logo-text h1 { font-family: 'Manrope', monospace; font-size: 15px; font-weight: 700; letter-spacing: 0.05em; color: var(--text); }
   .logo-text p { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 1px; }
   .status-bar { display: flex; align-items: center; gap: 20px; }
+  .main-nav { display: flex; gap: 6px; margin: 0 0 24px; padding: 5px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+  .nav-tab { flex: 1; border: 0; border-radius: 7px; padding: 10px 12px; background: transparent; color: var(--muted); font: 600 11px 'Manrope', sans-serif; cursor: pointer; }
+  .nav-tab:hover, .nav-tab.active { color: var(--text); background: var(--surface2); }
+  .view-panel { display: none; }
+  .view-panel.active { display: block; }
+  .patient-banner { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; padding: 16px 18px; border: 1px solid var(--border); border-radius: 12px; background: linear-gradient(110deg, var(--surface), var(--surface2)); }
+  .patient-banner strong { display: block; margin-top: 5px; font-size: 18px; }
+  .eyebrow { color: var(--muted); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
+  .patient-time { color: var(--muted); font: 11px 'Manrope', monospace; }
+  .log-card-full { min-height: 420px; }
+  @media (max-width: 600px) { .main-nav { overflow-x: auto; } .nav-tab { min-width: 120px; font-size: 10px; } .patient-banner { align-items: flex-start; flex-direction: column; gap: 8px; } }
   .conn-badge {
     display: flex; align-items: center; gap: 7px; font-size: 12px; font-family: 'Manrope', monospace;
     padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); transition: all 0.3s;
@@ -229,6 +240,18 @@
     </div>
   </header>
 
+  <nav class="main-nav" aria-label="Menu utama">
+    <button class="nav-tab active" type="button" data-view="dashboard">Dashboard</button>
+    <button class="nav-tab" type="button" data-view="analytics">Grafik & Statistik</button>
+    <button class="nav-tab" type="button" data-view="logs">Log Sistem</button>
+  </nav>
+
+  <main>
+  <section class="view-panel active" id="view-dashboard" aria-labelledby="nav-dashboard">
+    <div class="patient-banner">
+      <div><span class="eyebrow">Pasien aktif</span><strong id="patient-name-display">Menunggu data pasien</strong></div>
+      <span class="patient-time" id="patient-time-display">--</span>
+    </div>
   <div class="metrics-grid">
     <div class="metric-card temp">
       <div class="metric-label">Suhu Tubuh</div>
@@ -255,7 +278,9 @@
       <div class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.5 2.9 8.5 7 10 4.1-1.5 7-5.5 7-10V6l-7-3Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg></div>
     </div>
   </div>
+  </section>
 
+  <section class="view-panel" id="view-analytics">
   <div class="bottom-grid">
     <div class="chart-card">
       <div class="card-header">
@@ -273,17 +298,6 @@
       <div class="chart-wrap" id="chart-wrap">
         <canvas id="chart" height="220" aria-label="Grafik data kesehatan realtime"></canvas>
         <div class="chart-tooltip" id="chart-tooltip" role="status" aria-live="polite"></div>
-      </div>
-    </div>
-    <div class="log-card">
-      <div class="card-header">
-        <div class="card-title">Log Sistem</div>
-      </div>
-      <div class="log-list" id="log-list">
-        <div class="no-signal">
-          <div class="no-signal-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 17a10 10 0 0 1 14 0"/><path d="M8 14a6 6 0 0 1 8 0"/><path d="M11 11a2 2 0 0 1 2 0"/><path d="M12 20h.01"/></svg></div>
-          Menunggu data masuk...
-        </div>
       </div>
     </div>
   </div>
@@ -308,6 +322,20 @@
       <div class="stat-row"><span class="lbl">Maksimum</span><span class="val" id="s-spo2-max">--</span></div>
     </div>
   </div>
+  </section>
+
+  <section class="view-panel" id="view-logs">
+    <div class="log-card log-card-full">
+      <div class="card-header"><div class="card-title">Log Sistem</div></div>
+      <div class="log-list" id="log-list">
+        <div class="no-signal">
+          <div class="no-signal-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 17a10 10 0 0 1 14 0"/><path d="M8 14a6 6 0 0 1 8 0"/><path d="M11 11a2 2 0 0 1 2 0"/><path d="M12 20h.01"/></svg></div>
+          Menunggu data masuk...
+        </div>
+      </div>
+    </div>
+  </section>
+  </main>
 
 </div>
 
@@ -320,6 +348,13 @@ const API_BASE = window.location.origin;
 
 // Interval polling dalam milidetik (default 3 detik)
 const POLL_INTERVAL = 3000;
+
+document.querySelectorAll('.nav-tab').forEach((tab) => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.nav-tab').forEach((item) => item.classList.toggle('active', item === tab));
+    document.querySelectorAll('.view-panel').forEach((panel) => panel.classList.toggle('active', panel.id === `view-${tab.dataset.view}`));
+  });
+});
 
 // ============================================================
 // CANVAS CHART
@@ -686,6 +721,10 @@ function pushChartData(d) {
   }
 
   function updateMetrics(d, appendToChart = true) {
+  const patientName = document.getElementById('patient-name-display');
+  const patientTime = document.getElementById('patient-time-display');
+  if (patientName) patientName.textContent = d.patient_name || 'Nama pasien belum diisi';
+  if (patientTime) patientTime.textContent = d.timestamp ? new Date(d.timestamp).toLocaleString('id-ID') : '--';
   if (appendToChart) dataCount++;
   const dataCountElement = document.getElementById('data-count');
   if (dataCountElement) dataCountElement.textContent = dataCount;
