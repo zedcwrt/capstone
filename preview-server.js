@@ -64,8 +64,10 @@ async function handleInput(req, res) {
   try {
     validateRedisConfig();
 
-    if (req.method === 'DELETE') {
-      await Promise.all([
+  if (req.method === 'DELETE') {
+  return json(res, 405, { error: 'Data sensor tidak dapat direset' });
+
+  await Promise.all([
         redis.del(HISTORY_KEY),
         redis.del(LATEST_KEY),
       ]);
