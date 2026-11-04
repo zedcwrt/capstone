@@ -188,10 +188,26 @@
   .stat-row .lbl { color: var(--muted); }
   .stat-row .val { font-weight: 700; }
   .no-signal { text-align: center; padding: 40px; color: var(--muted); font-size: 13px; font-family: 'Manrope', monospace; }
+  .patient-modal { position: fixed; inset: 0; z-index: 20; display: none; place-items: center; padding: 20px; background: rgba(3, 5, 10, 0.72); }
+  .patient-modal.show { display: grid; }
+  .patient-dialog { width: min(100%, 360px); padding: 22px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: 0 20px 60px rgba(0,0,0,.4); }
+  .patient-dialog h2 { margin: 0 0 8px; font-size: 17px; }
+  .patient-dialog p { margin: 0 0 16px; color: var(--muted); font-size: 12px; }
+  .patient-dialog input { width: 100%; box-sizing: border-box; padding: 11px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); color: var(--text); font: inherit; }
+  .patient-dialog button { width: 100%; margin-top: 12px; padding: 11px; border: 0; border-radius: 8px; background: var(--blue); color: #07101d; font-weight: 700; cursor: pointer; }
   .no-signal-icon { width: 42px; height: 42px; margin: 0 auto 12px; opacity: 1; }
 </style>
 </head>
 <body>
+<div class="patient-modal" id="patient-modal" role="dialog" aria-modal="true" aria-labelledby="patient-modal-title">
+  <form class="patient-dialog" id="patient-form">
+    <h2 id="patient-modal-title">Data pasien baru</h2>
+    <p>Masukkan nama pasien untuk menyimpan data ini ke database.</p>
+    <label class="sr-only" for="patient-name">Nama pasien</label>
+    <input id="patient-name" name="patient_name" type="text" maxlength="120" placeholder="Nama pasien" autocomplete="name" required>
+    <button type="submit">Simpan nama pasien</button>
+  </form>
+</div>
 <div class="wrapper">
 
   <header>
@@ -591,9 +607,10 @@ async function pollLatest() {
       // Hanya data yang timestamp-nya lebih baru dari cursor yang diproses.
       if (d.timestamp !== lastTimestamp) {
         lastTimestamp = d.timestamp;
-        updateMetrics(d);
-      }
-    }
+  updateMetrics(d);
+  await requestPatientName(d);
+  }
+  }
   } catch (err) {
     if (serverOnline) {
       setStatus(false);
@@ -639,7 +656,36 @@ function pushChartData(d) {
   drawChart();
 }
 
-function updateMetrics(d, appendToChart = true) {
+  async function requestPatientName(record) {
+  const modal = document.getElementById('patient-modal');
+  const form = document.getElementById('patient-form');
+  const input = document.getElementById('patient-name');
+  modal.classList.add('show');
+  input.value = '';
+  input.focus();
+  await new Promise((resolve) => {
+    const submit = async (event) => {
+      event.preventDefault();
+      const name = input.value.trim();
+      if (!name) return;
+      form.removeEventListener('submit', submit);
+      try {
+        const response = await fetch(`${API_BASE}/input`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ timestamp: record.timestamp, patient_name: name }) });
+        if (!response.ok) throw new Error('Nama pasien gagal disimpan');
+        record.patient_name = name;
+        addLog(`Pasien tersimpan: ${name}`, 'ok');
+      } catch (error) {
+        addLog(error.message, 'error');
+      } finally {
+        modal.classList.remove('show');
+        resolve();
+      }
+    };
+    form.addEventListener('submit', submit);
+  });
+  }
+
+  function updateMetrics(d, appendToChart = true) {
   if (appendToChart) dataCount++;
   const dataCountElement = document.getElementById('data-count');
   if (dataCountElement) dataCountElement.textContent = dataCount;

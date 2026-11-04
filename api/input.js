@@ -26,7 +26,7 @@ function requireRedis() {
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
@@ -85,6 +85,21 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
+    if (req.method === 'PUT') {
+      const patientName = String(req.body?.patient_name || '').trim().slice(0, 120);
+      const timestamp = String(req.body?.timestamp || '');
+      if (!patientName || !timestamp) return res.status(400).json({ error: 'Nama pasien dan timestamp wajib diisi' });
+      const store = requireRedis();
+      const records = await store.lrange(HISTORY_KEY, 0, MAX_HISTORY - 1);
+      const index = records.findIndex((item) => item?.timestamp === timestamp);
+      if (index < 0) return res.status(404).json({ error: 'Data sensor tidak ditemukan' });
+      const updated = { ...records[index], patient_name: patientName };
+      await store.lset(HISTORY_KEY, index, JSON.stringify(updated));
+      const latest = await store.get(LATEST_KEY);
+      if (latest?.timestamp === timestamp) await store.set(LATEST_KEY, updated);
+      return res.status(200).json({ ok: true, updated });
+    }
+
     if (req.method === 'POST') {
       const record = parseRecord(req.body);
       if (!record) return res.status(400).json({ error: 'Field tidak lengkap atau angka sensor tidak valid' });
