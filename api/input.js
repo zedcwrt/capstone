@@ -94,8 +94,10 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, received: record, storage: 'upstash' });
     }
 
-    if (req.method === 'DELETE') {
-      const store = requireRedis();
+  if (req.method === 'DELETE') {
+  return res.status(405).json({ error: 'Data sensor tidak dapat direset' });
+
+  const store = requireRedis();
       await Promise.all([
         store.del(HISTORY_KEY),
         store.del(LATEST_KEY),
