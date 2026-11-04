@@ -95,6 +95,12 @@
   .eyebrow { color: var(--muted); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
   .patient-time { color: var(--muted); font: 11px 'Manrope', monospace; }
   .log-card-full { min-height: 420px; }
+  .recommendation-card { display: flex; align-items: flex-start; gap: 16px; margin-top: 22px; padding: 22px 24px; border: 1px solid rgba(96,165,250,.25); border-radius: 16px; background: linear-gradient(110deg, rgba(96,165,250,.1), var(--surface)); }
+  .recommendation-icon { flex: 0 0 34px; color: var(--blue); }
+  .recommendation-icon svg { width: 34px; height: 34px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .recommendation-label { color: var(--blue); font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  .recommendation-card p { margin: 7px 0 0; color: var(--text); font-size: 13px; line-height: 1.55; }
+  @media (max-width: 600px) { .recommendation-card { padding: 18px; } .recommendation-card p { font-size: 12px; } }
   @media (max-width: 600px) { .main-nav { overflow-x: auto; } .nav-tab { min-width: 120px; font-size: 10px; } .patient-banner { align-items: flex-start; flex-direction: column; gap: 8px; } }
   .conn-badge {
     display: flex; align-items: center; gap: 7px; font-size: 12px; font-family: 'Manrope', monospace;
@@ -305,6 +311,10 @@
       <div class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.5 2.9 8.5 7 10 4.1-1.5 7-5.5 7-10V6l-7-3Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg></div>
     </div>
   </div>
+  <section class="recommendation-card" aria-labelledby="recommendation-title">
+    <div class="recommendation-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3a7 7 0 0 0-4 12.7V19h8v-3.3A7 7 0 0 0 12 3Z"/><path d="M9 22h6M9 19h6"/></svg></div>
+    <div><div class="recommendation-label" id="recommendation-title">Rekomendasi Kesehatan</div><p id="health-recommendation">Menunggu data pasien untuk memberikan rekomendasi.</p></div>
+  </section>
   </section>
 
   <section class="view-panel" id="view-analytics">
@@ -766,6 +776,16 @@ function pushChartData(d) {
 
   const tempStatus = d.body_temp > 0 ? (d.body_temp < 36.5 ? 'Rendah' : d.body_temp <= 37.5 ? 'Normal' : 'Tinggi') : null;
   const heartStatus = d.heart_rate > 0 ? (d.heart_rate < 60 ? 'Lambat' : d.heart_rate <= 100 ? 'Normal' : 'Cepat') : null;
+  const recommendation = document.getElementById('health-recommendation');
+  if (recommendation) {
+    const advice = [];
+    if (tempStatus === 'Rendah') advice.push('hangatkan tubuh dan pantau suhu kembali');
+    if (tempStatus === 'Tinggi') advice.push('beristirahat, cukup minum, dan pantau suhu');
+    if (heartStatus === 'Lambat') advice.push('beristirahat dan pantau detak jantung');
+    if (heartStatus === 'Cepat') advice.push('beristirahat, tenangkan napas, dan pantau detak jantung');
+    if (d.spo2 > 0 && d.spo2 < 95) advice.push('duduk tegak dan pantau saturasi oksigen');
+    recommendation.textContent = advice.length ? `Disarankan untuk ${advice.join('; ')}. Jika keluhan berlanjut, konsultasikan dengan tenaga medis.` : (tempStatus || heartStatus || d.spo2 > 0 ? 'Kondisi dalam batas normal. Pertahankan pola hidup sehat dan lakukan pemantauan berkala.' : 'Menunggu data pasien untuk memberikan rekomendasi.');
+  }
 
   const setStatusSubtitle = (id, status) => {
     const element = document.getElementById(id);
