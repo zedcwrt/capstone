@@ -82,8 +82,11 @@
   .logo-text h1 { font-family: 'Manrope', monospace; font-size: 15px; font-weight: 700; letter-spacing: 0.05em; color: var(--text); }
   .logo-text p { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 1px; }
   .status-bar { display: flex; align-items: center; gap: 20px; }
-  .main-nav { display: flex; gap: 6px; margin: 0 0 24px; padding: 5px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
-  .nav-tab { flex: 1; border: 0; border-radius: 7px; padding: 10px 12px; background: transparent; color: var(--muted); font: 600 11px 'Manrope', sans-serif; cursor: pointer; }
+  .menu-toggle { display: inline-grid; place-items: center; width: 38px; height: 38px; margin-right: 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text); cursor: pointer; }
+  .menu-toggle svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+  .main-nav { position: absolute; z-index: 10; top: 82px; left: 0; display: none; flex-direction: column; gap: 4px; width: 190px; margin: 0; padding: 7px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); box-shadow: 0 16px 38px rgba(0,0,0,.28); }
+  .main-nav.open { display: flex; }
+  .nav-tab { border: 0; border-radius: 7px; padding: 11px 12px; background: transparent; color: var(--muted); text-align: left; font: 600 11px 'Manrope', sans-serif; cursor: pointer; }
   .nav-tab:hover, .nav-tab.active { color: var(--text); background: var(--surface2); }
   .view-panel { display: none; }
   .view-panel.active { display: block; }
@@ -223,6 +226,9 @@
 
   <header>
     <div class="logo">
+      <button class="menu-toggle" id="menu-toggle" type="button" aria-label="Buka menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
       <div class="logo-icon">
         <img src="/favicon.png" alt="Logo CardioTemp">
       </div>
@@ -349,12 +355,20 @@ const API_BASE = window.location.origin;
 // Interval polling dalam milidetik (default 3 detik)
 const POLL_INTERVAL = 3000;
 
-document.querySelectorAll('.nav-tab').forEach((tab) => {
+  const menuToggle = document.getElementById('menu-toggle');
+  const mainNav = document.querySelector('.main-nav');
+  menuToggle.addEventListener('click', () => {
+    const isOpen = mainNav.classList.toggle('open');
+    menuToggle.setAttribute('aria-expanded', String(isOpen));
+  });
+  document.querySelectorAll('.nav-tab').forEach((tab) => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('.nav-tab').forEach((item) => item.classList.toggle('active', item === tab));
     document.querySelectorAll('.view-panel').forEach((panel) => panel.classList.toggle('active', panel.id === `view-${tab.dataset.view}`));
+    mainNav.classList.remove('open');
+    menuToggle.setAttribute('aria-expanded', 'false');
   });
-});
+  });
 
 // ============================================================
 // CANVAS CHART
