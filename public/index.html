@@ -154,7 +154,7 @@
   .legend { display: flex; gap: 12px; }
   .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); font-family: 'Manrope', monospace; }
   .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
-  canvas { display: block; }
+  canvas { display: block; width: 100%; height: 220px; min-height: 220px; }
   .log-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; display: flex; flex-direction: column; }
   .log-list { flex: 1; overflow-y: auto; max-height: 280px; display: flex; flex-direction: column; gap: 6px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
   .log-entry { font-family: 'Manrope', monospace; font-size: 10px; line-height: 1.6; padding: 7px 10px; border-radius: 6px; background: var(--surface2); border-left: 2px solid var(--border); color: var(--muted); animation: slide-in 0.3s ease; }
@@ -396,6 +396,7 @@ const POLL_INTERVAL = 3000;
   tab.addEventListener('click', () => {
     document.querySelectorAll('.nav-tab').forEach((item) => item.classList.toggle('active', item === tab));
     document.querySelectorAll('.view-panel').forEach((panel) => panel.classList.toggle('active', panel.id === `view-${tab.dataset.view}`));
+    if (tab.dataset.view === 'analytics') requestAnimationFrame(resizeCanvas);
     mainNav.classList.remove('open');
     menuToggle.setAttribute('aria-expanded', 'false');
   });
@@ -504,6 +505,14 @@ function drawChart() {
   drawLine(chartData.temp, '#fbbf24', 0, 150);
   drawLine(chartData.hr,   '#ff4d6d', 0, 150);
   drawLine(chartData.spo2, '#60a5fa', 0, 150);
+
+  const hasChartData = [chartData.temp, chartData.hr, chartData.spo2].some(series => series.some(value => value !== null));
+  if (!hasChartData) {
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = '12px Manrope, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Belum ada data sensor', PAD.left + CW / 2, PAD.top + CH / 2);
+  }
 }
 
 const chartWrap = document.getElementById('chart-wrap');
