@@ -92,6 +92,10 @@
   .view-panel.active { display: block; }
   .patient-banner { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; padding: 16px 18px; border: 1px solid var(--border); border-radius: 12px; background: linear-gradient(110deg, var(--surface), var(--surface2)); }
   .patient-banner strong { display: block; margin-top: 5px; font-size: 18px; }
+  .patient-name-input { display: block; width: min(100%, 320px); margin-top: 5px; padding: 4px 0; border: 0; border-bottom: 1px solid var(--border); outline: none; background: transparent; color: var(--text); font: 700 18px 'Manrope', sans-serif; }
+  .patient-name-input:focus { border-color: var(--blue); }
+  .patient-name-input { display: block; width: min(100%, 320px); margin-top: 5px; padding: 4px 0; border: 0; border-bottom: 1px solid var(--border); outline: none; background: transparent; color: var(--text); font: 700 18px 'Manrope', sans-serif; }
+  .patient-name-input:focus { border-color: var(--blue); }
   .eyebrow { color: var(--muted); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
   .patient-time { color: var(--muted); font: 11px 'Manrope', monospace; }
   .log-card-full { min-height: 420px; }
@@ -284,7 +288,7 @@
   <main>
   <section class="view-panel active" id="view-dashboard" aria-labelledby="nav-dashboard">
     <div class="patient-banner">
-      <div><span class="eyebrow">Nama Pasien</span><strong id="patient-name-display">-</strong></div>
+      <div><span class="eyebrow">Nama Pasien</span><input id="patient-name-display" class="patient-name-input" type="text" maxlength="120" placeholder="Nama pasien" aria-label="Nama pasien"></div>
       <span class="patient-time" id="patient-time-display">--</span>
     </div>
   <div class="metrics-grid">
@@ -387,6 +391,19 @@ const API_BASE = window.location.origin;
 
 // Interval polling dalam milidetik (default 3 detik)
 const POLL_INTERVAL = 3000;
+
+  const patientNameInput = document.getElementById('patient-name-display');
+  patientNameInput.addEventListener('change', async () => {
+    const patientName = patientNameInput.value.trim();
+    if (!latestPatientTimestamp || !patientName) return;
+    try {
+      const response = await fetch(`${API_BASE}/input`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ timestamp: latestPatientTimestamp, patient_name: patientName }) });
+      if (!response.ok) throw new Error('Nama pasien gagal disimpan');
+      addLog(`Nama pasien diperbarui: ${patientName}`, 'ok');
+    } catch (error) {
+      addLog(error.message, 'error');
+    }
+  });
 
   const menuToggle = document.getElementById('menu-toggle');
   const mainNav = document.querySelector('.main-nav');
@@ -653,6 +670,7 @@ function addLog(msg, type = '') {
 // ============================================================
 let dataCount = 0;
   let lastTimestamp = null;
+  let latestPatientTimestamp = null;
   let hasInitializedData = false;
   let serverOnline = false;
 let statsInterval = null;
@@ -692,7 +710,6 @@ async function pollLatest() {
       if (d.timestamp !== lastTimestamp) {
         lastTimestamp = d.timestamp;
   updateMetrics(d);
-  await requestPatientName(d);
   }
   }
   } catch (err) {
@@ -772,7 +789,8 @@ function pushChartData(d) {
   function updateMetrics(d, appendToChart = true) {
   const patientName = document.getElementById('patient-name-display');
   const patientTime = document.getElementById('patient-time-display');
-  if (patientName) patientName.textContent = d.patient_name || 'Nama pasien belum diisi';
+  latestPatientTimestamp = d.timestamp || null;
+  if (patientName) patientName.value = d.patient_name || '';
   if (patientTime) patientTime.textContent = d.timestamp ? new Date(d.timestamp).toLocaleString('id-ID') : '--';
   if (appendToChart) dataCount++;
   const dataCountElement = document.getElementById('data-count');
