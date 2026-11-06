@@ -877,17 +877,21 @@ async function exportSensorData() {
       return;
     }
 
-const headers = ['Nama Pasien', 'Waktu', 'Suhu (°C)', 'Detak Jantung (bpm)', 'SpO₂ (%)', 'Status Jantung', 'Status Suhu', 'Status Kesehatan'];
-  const csv = [headers, ...rows.map(item => [
+  const headers = ['Nama Pasien', 'Waktu', 'Suhu (°C)', 'Detak Jantung (bpm)', 'SpO₂ (%)', 'Status Detak', 'Status Suhu', 'Status Detak / Suhu'];
+  const csv = [headers, ...rows.map(item => {
+  const tempStatus = item.body_temp > 0 ? (item.body_temp < 36.5 ? 'Rendah' : item.body_temp <= 37.5 ? 'Normal' : 'Tinggi') : 'Standby';
+  const heartStatus = item.heart_rate > 0 ? (item.heart_rate < 60 ? 'Lambat' : item.heart_rate <= 100 ? 'Normal' : 'Cepat') : 'Standby';
+  return [
   item.patient_name || '',
   item.timestamp,
   item.body_temp,
   item.heart_rate,
   item.spo2,
-  item.heartStatus,
-  item.tempStatus,
-  item.health_status,
-  ])].map(row => row.map(csvCell).join(',')).join('\r\n');
+  heartStatus,
+  tempStatus,
+  [heartStatus, tempStatus].filter(status => status !== 'Standby').join(' / ') || 'Standby',
+  ];
+  })].map(row => row.map(csvCell).join(',')).join('\r\n');
 
     const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
