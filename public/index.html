@@ -569,11 +569,14 @@ function showChartTooltip(index, metric, clientX) {
   const pointY = chartPad.top + chartHeight - (value / 150) * chartHeight;
   const pointLeft = canvasRect.left - wrapRect.left + pointX;
   const pointTop = canvasRect.top - wrapRect.top + pointY;
-  const tooltipWidth = 190;
+  const tooltipWidth = Math.min(190, chartWrap.clientWidth - 16);
   const tooltipHeight = chartTooltip.offsetHeight || 62;
-  const left = Math.max(8, Math.min(chartWrap.clientWidth - tooltipWidth - 8, pointLeft + 12));
-  // Keep the detail card above the selected point so a finger does not cover it.
-  const top = Math.max(8, pointTop - tooltipHeight - 12);
+  const preferLeft = pointLeft > chartWrap.clientWidth / 2;
+  const preferredLeft = preferLeft ? pointLeft - tooltipWidth - 12 : pointLeft + 12;
+  const left = Math.max(8, Math.min(chartWrap.clientWidth - tooltipWidth - 8, preferredLeft));
+  const preferBelow = pointTop < tooltipHeight + 20;
+  const preferredTop = preferBelow ? pointTop + 16 : pointTop - tooltipHeight - 12;
+  const top = Math.max(8, Math.min(chartWrap.clientHeight - tooltipHeight - 8, preferredTop));
   chartTooltip.style.left = `${left}px`;
   chartTooltip.style.top = `${top}px`;
   chartTooltip.classList.add('show');
