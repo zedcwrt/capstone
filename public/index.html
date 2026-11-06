@@ -633,15 +633,14 @@ canvas.addEventListener('pointerdown', event => {
 canvas.addEventListener('pointerup', event => {
   if (event.pointerType !== 'mouse') {
     chartPointerHeld = false;
-    hideChartTooltip();
+    // Keep the selected detail visible after the finger is lifted.
   }
 });
 canvas.addEventListener('pointercancel', () => {
   chartPointerHeld = false;
-  hideChartTooltip();
 });
 canvas.addEventListener('pointerleave', event => {
-  if (event.pointerType === 'mouse' || !chartPointerHeld) hideChartTooltip();
+  if (event.pointerType === 'mouse') hideChartTooltip();
 });
 canvas.addEventListener('keydown', event => {
   if (event.key === 'Escape') hideChartTooltip();
