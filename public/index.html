@@ -148,6 +148,7 @@
   .tooltip-time { display: flex; align-items: center; justify-content: space-between; gap: 28px; color: var(--muted); margin-bottom: 3px; white-space: nowrap; }
   .tooltip-row { display: flex; justify-content: space-between; gap: 16px; }
   .tooltip-row strong { color: var(--text); }
+ .tooltip-patient { padding-bottom: 3px; margin-bottom: 3px; border-bottom: 1px solid rgba(255,255,255,.08); }
   .tooltip-temp { color: var(--amber); }
   .tooltip-hr { color: var(--pulse); }
   .tooltip-spo2 { color: var(--blue); }
@@ -551,11 +552,12 @@ function showChartTooltip(index, metric, clientX) {
       }).replaceAll(':', '.')
     : '--';
   const metricDetails = {
-    temp: ['Suhu', point.body_temp > 0 ? point.body_temp.toFixed(1) + ' °C' : '--', 'tooltip-temp'],
-    hr: ['Detak jantung', point.heart_rate > 0 ? Math.round(point.heart_rate) + ' bpm' : '--', 'tooltip-hr'],
-    spo2: ['SpO₂', point.spo2 > 0 ? point.spo2.toFixed(1) + '%' : '--', 'tooltip-spo2']
+  temp: ['Suhu', point.body_temp > 0 ? point.body_temp.toFixed(1) + ' °C' : '--', 'tooltip-temp'],
+  hr: ['Detak jantung', point.heart_rate > 0 ? Math.round(point.heart_rate) + ' bpm' : '--', 'tooltip-hr'],
+  spo2: ['SpO₂', point.spo2 > 0 ? point.spo2.toFixed(1) + '%' : '--', 'tooltip-spo2']
   }[metric];
-  chartTooltip.innerHTML = `<div class="tooltip-time"><span>${date}</span><span>${time}</span></div><div class="tooltip-row ${metricDetails[2]}"><span>${metricDetails[0]}</span><strong>${metricDetails[1]}</strong></div>`;
+  const patientName = String(point.patient_name || 'Nama belum diisi').replace(/[&<>\"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#39;' })[character]);
+  chartTooltip.innerHTML = `<div class="tooltip-time"><span>${date}</span><span>${time}</span></div><div class="tooltip-row tooltip-patient"><span>Pasien</span><strong>${patientName}</strong></div><div class="tooltip-row ${metricDetails[2]}"><span>${metricDetails[0]}</span><strong>${metricDetails[1]}</strong></div>`;
   const wrapRect = chartWrap.getBoundingClientRect();
   const canvasRect = canvas.getBoundingClientRect();
   const metricValues = { temp: point.body_temp, hr: point.heart_rate, spo2: point.spo2 };
