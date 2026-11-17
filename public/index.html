@@ -96,6 +96,12 @@
   .patient-name-input:focus { border-color: var(--blue); }
   .patient-name-input { display: block; width: min(100%, 320px); margin-top: 5px; padding: 4px 0; border: 0; border-bottom: 1px solid var(--border); outline: none; background: transparent; color: var(--text); font: 700 18px 'Manrope', sans-serif; }
   .patient-name-input:focus { border-color: var(--blue); }
+  .patient-name-form { min-width: 0; }
+  .patient-name-row { display: flex; align-items: center; gap: 8px; }
+  .patient-name-submit { flex: 0 0 auto; padding: 7px 11px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface2); color: var(--text); font: 600 11px 'Manrope', sans-serif; cursor: pointer; }
+  .patient-name-submit:hover:not(:disabled) { border-color: var(--blue); }
+  .patient-name-submit:disabled { opacity: .65; cursor: default; }
+  .patient-name-input:read-only { border-bottom-style: dashed; opacity: .8; }
   .eyebrow { color: var(--muted); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
   .patient-time { color: var(--muted); font: 11px 'Manrope', monospace; }
   .log-card-full { min-height: 420px; }
@@ -289,7 +295,13 @@
   <main>
   <section class="view-panel active" id="view-dashboard" aria-labelledby="nav-dashboard">
     <div class="patient-banner">
-      <div><span class="eyebrow">Nama Pasien</span><input id="patient-name-display" class="patient-name-input" type="text" maxlength="120" placeholder="Nama pasien" aria-label="Nama pasien"></div>
+      <form id="patient-name-form" class="patient-name-form">
+        <label class="eyebrow" for="patient-name-display">Nama Pasien</label>
+        <div class="patient-name-row">
+          <input id="patient-name-display" class="patient-name-input" type="text" maxlength="120" placeholder="Ketik nama lalu tekan Enter" aria-label="Nama pasien" autocomplete="off" required>
+          <button id="patient-name-submit" class="patient-name-submit" type="submit">Simpan</button>
+        </div>
+      </form>
       <span class="patient-time" id="patient-time-display">--</span>
     </div>
   <div class="metrics-grid">
@@ -394,14 +406,29 @@ const API_BASE = window.location.origin;
 const POLL_INTERVAL = 3000;
 
   const patientNameInput = document.getElementById('patient-name-display');
-  patientNameInput.addEventListener('change', async () => {
+  const patientNameForm = document.getElementById('patient-name-form');
+  const patientNameSubmit = document.getElementById('patient-name-submit');
+  patientNameInput.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' || event.nativeEvent?.isComposing || event.keyCode === 229) return;
+    event.preventDefault();
+    patientNameForm.requestSubmit();
+  });
+  patientNameForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
     const patientName = patientNameInput.value.trim();
-    if (!latestPatientTimestamp || !patientName) return;
+    const timestamp = latestPatientTimestamp;
+    if (!timestamp || !patientName || patientNameInput.readOnly) return;
+    patientNameSubmit.disabled = true;
+    patientNameSubmit.textContent = 'Menyimpan…';
     try {
-      const response = await fetch(`${API_BASE}/input`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ timestamp: latestPatientTimestamp, patient_name: patientName }) });
+      const response = await fetch(`${API_BASE}/input`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ timestamp, patient_name: patientName }) });
       if (!response.ok) throw new Error('Nama pasien gagal disimpan');
-      addLog(`Nama pasien diperbarui: ${patientName}`, 'ok');
+      patientNameInput.readOnly = true;
+      patientNameSubmit.textContent = 'Tersimpan';
+      addLog(`Nama pasien tersimpan: ${patientName}`, 'ok');
     } catch (error) {
+      patientNameSubmit.disabled = false;
+      patientNameSubmit.textContent = 'Simpan';
       addLog(error.message, 'error');
     }
   });
@@ -793,8 +820,15 @@ function pushChartData(d) {
   function updateMetrics(d, appendToChart = true) {
   const patientName = document.getElementById('patient-name-display');
   const patientTime = document.getElementById('patient-time-display');
-  latestPatientTimestamp = d.timestamp || null;
-  if (patientName) patientName.value = d.patient_name || '';
+  const incomingPatientTimestamp = d.timestamp || null;
+  const isNewPatientRecord = incomingPatientTimestamp !== latestPatientTimestamp;
+  latestPatientTimestamp = incomingPatientTimestamp;
+  if (patientName && isNewPatientRecord) {
+    patientName.value = d.patient_name || '';
+    patientName.readOnly = Boolean(d.patient_name);
+    patientNameSubmit.disabled = Boolean(d.patient_name);
+    patientNameSubmit.textContent = d.patient_name ? 'Tersimpan' : 'Simpan';
+  }
   if (patientTime) patientTime.textContent = d.timestamp ? new Date(d.timestamp).toLocaleString('id-ID') : '--';
   if (appendToChart) dataCount++;
   const dataCountElement = document.getElementById('data-count');
