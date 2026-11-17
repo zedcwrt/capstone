@@ -425,6 +425,12 @@ const POLL_INTERVAL = 3000;
       if (!response.ok) throw new Error('Nama pasien gagal disimpan');
       patientNameInput.readOnly = true;
       patientNameSubmit.textContent = 'Tersimpan';
+      chartPoints.forEach((point) => {
+        if (point?.timestamp === timestamp) point.patient_name = patientName;
+      });
+      if (selectedChartIndex !== null && chartPoints[selectedChartIndex]?.timestamp === timestamp) {
+        showChartTooltip(selectedChartIndex, selectedChartMetric);
+      }
       addLog(`Nama pasien tersimpan: ${patientName}`, 'ok');
     } catch (error) {
       patientNameSubmit.disabled = false;
